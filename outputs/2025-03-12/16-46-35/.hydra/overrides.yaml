@@ -1,0 +1,5 @@
+- dataset=cardiac_CAD_SemiPseudo_0.01
+- exp_name=test
+- test=True
+- use_wandb=False
+- checkpoint=/home/siyi/project/mm/result/Disen_project/H22/final_SemiDisCo_Pseudo_Smooth_1.e-3_0.2_0.5_5.0_0.5_5.0_0.85_0.95_start8_ema0.4low001_CAD_0829_0209/checkpoint_best_auc.ckpt

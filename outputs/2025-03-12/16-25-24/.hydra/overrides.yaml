@@ -1,0 +1,4 @@
+- dataset=dvm_all_server_reordered_SemiPseudo_0.01
+- exp_name=test
+- test=True
+- checkpoint=/home/siyi/project/mm/result/Disen_project/DC60/SemiDisCo_Pseudo_Smooth_rightoptim_eman_1e4_02_3_05_1_02_90_start30_low001_dvm_0826_1048/checkpoint_best_acc.ckpt
