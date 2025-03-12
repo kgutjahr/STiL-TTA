@@ -1,5 +1,0 @@
-- dataset=cardiac_CAD_SemiPseudo_0.01
-- exp_name=train
-- evaluate=True
-- use_wandb=False
-- max_epochs=1
