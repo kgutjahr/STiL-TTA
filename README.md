@@ -2,7 +2,7 @@
 
 <h1><a href="http://arxiv.org/abs/2503.06277">STiL: Semi-supervised Tabular-Image Learning for Comprehensive Task-Relevant Information Exploration in Multimodal Classification (CVPR 2025)</a></h1>
 
-**[Siyi Du](https://scholar.google.com.hk/citations?user=wZ4M4ecAAAAJ&hl=en&oi=ao), [Xinzhe Luo](https://scholar.google.com/citations?user=l-oyIaAAAAAJ&hl=en&oi=ao), [Declan P. O'Regan](https://scholar.google.com/citations?user=85u-LbAAAAAJ&hl=en&oi=ao), and [Chen Qin](https://scholar.google.com/citations?view_op=list_works&hl=en&hl=en&user=mTWrOqHOqjoC&pagesize=80&sortby=pubdate)** 
+**[Siyi Du](https://scholar.google.com/citations?user=zsOt8MYAAAAJ&hl=en), [Xinzhe Luo](https://scholar.google.com/citations?user=l-oyIaAAAAAJ&hl=en&oi=ao), [Declan P. O'Regan](https://scholar.google.com/citations?user=85u-LbAAAAAJ&hl=en&oi=ao), and [Chen Qin](https://scholar.google.com/citations?view_op=list_works&hl=en&hl=en&user=mTWrOqHOqjoC&pagesize=80&sortby=pubdate)** 
 
 ![](https://komarev.com/ghpvc/?username=siyi-windSTiL&label=visitors)
 ![GitHub stars](https://badgen.net/github/stars/siyi-wind/STiL)
