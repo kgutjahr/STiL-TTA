@@ -78,10 +78,10 @@ If you use this code in your research, please consider citing:
 
 ```text
 @inproceedings{du2025stil,
-  title={{STiL}: Semi-supervised Tabular-Image Learning for Comprehensive Task-Relevant Information Exploration in Multimodal Classification,
+  title={{STiL}: Semi-supervised Tabular-Image Learning for Comprehensive Task-Relevant Information Exploration in Multimodal Classification},
   author={Du, Siyi and Luo, Xinzhe and O'Regan, Declan P. and Qin, Chen},
   booktitle={Conference on Computer Vision and Pattern Recognition (CVPR) 2025},
-  year={2025}
+  year={2025}}
 ```
 
 ## Acknowledgements
