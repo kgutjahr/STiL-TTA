@@ -200,10 +200,10 @@ class ImagingAndTabularDataset(Dataset):
   
 if __name__ == '__main__':
   dataset = ImagingAndTabularDataset(
-    data_path_imaging='/bigdata/siyi/data/DVM/features/val_paths_all_views.pt', delete_segmentation=False, eval_train_augment_rate=0.8, 
-          data_path_tabular='/bigdata/siyi/data/DVM/features/dvm_features_val_noOH_all_views_physical_jittered_50_reordered.csv', 
-          field_lengths_tabular='/bigdata/siyi/data/DVM/features/tabular_lengths_all_views_physical_reordered.pt', eval_one_hot=False,
-          labels_path='/bigdata/siyi/data/DVM/features/labels_model_all_val_all_views.pt', img_size=128, live_loading=True, train=True, target='dvm',
+    data_path_imaging='/mnt/data/kgutjahr/datasets/DVM/images/val_paths_all_views.pt', delete_segmentation=False, eval_train_augment_rate=0.8, 
+          data_path_tabular='/mnt/data/kgutjahr/datasets/DVM/images/dvm_features_val_noOH_all_views_physical_jittered_50_reordered.csv', 
+          field_lengths_tabular='/mnt/data/kgutjahr/datasets/DVM/images/tabular_lengths_all_views_physical_reordered.pt', eval_one_hot=False,
+          labels_path='/mnt/data/kgutjahr/datasets/DVM/images/labels_model_all_val_all_views.pt', img_size=128, live_loading=True, train=True, target='dvm',
           corruption_rate=0.3, augmentation_speedup=True, 
   )
   print(dataset[0][0][0].shape, dataset[0][0][1].shape, dataset[0][1].shape)
