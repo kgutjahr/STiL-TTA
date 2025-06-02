@@ -1,21 +1,23 @@
 import os 
+os.environ["WANDB_MODE"] = "offline"
+os.environ["WANDB_DIR"] = "/mnt/data/kgutjahr/results/test"
+
 import sys
 import time
 from datetime import datetime
 import random
-from multiprocessing import Queue
 
 import hydra
-from omegaconf import DictConfig, open_dict, OmegaConf
+from omegaconf import DictConfig, OmegaConf
 import torch
 import pytorch_lightning as pl
+
 from pytorch_lightning.loggers import WandbLogger
 import wandb
 
 from trainers.evaluate import evaluate
 from trainers.test import test
 from utils.utils import grab_arg_from_checkpoint, prepend_paths, re_prepend_paths
-from os.path import join
 
 torch.multiprocessing.set_sharing_strategy('file_system')
 torch.backends.cudnn.determinstic = True
@@ -59,19 +61,22 @@ def run(args: DictConfig):
     # Run prepend again in case we move to another server and need to redo the paths
     args.data_base = tmp_data_base
     args = re_prepend_paths(args)
-
   
-  base_dir = os.path.dirname(os.path.abspath(sys.argv[0]))
-  base_dir = os.path.join(os.path.dirname(os.path.dirname(base_dir)), 'result')
+  wandb_dir = os.getenv("WANDB_DIR")
+  if wandb_dir: 
+    save_dir = wandb_dir
+  else:
+    save_dir = os.path.dirname(os.path.abspath(sys.argv[0]))
+    save_dir = os.path.join(os.path.dirname(os.path.dirname(save_dir)), 'result')
 
   exp_name = f'{args.exp_name}_{args.target}_{now.strftime("%m%d_%H%M")}'
   if args.use_wandb:
     if args.resume_training and args.wandb_id:
-      wandb_logger = WandbLogger(name=exp_name, project=args.wandb_project, entity=args.wandb_entity, save_dir=base_dir, offline=args.offline, id=args.wandb_id, resume='allow')
+      wandb_logger = WandbLogger(name=exp_name, project=args.wandb_project, entity=args.wandb_entity, save_dir=save_dir, offline=args.offline, id=args.wandb_id, resume='allow')
     else:
-      wandb_logger = WandbLogger(name=exp_name, project=args.wandb_project, entity=args.wandb_entity, save_dir=base_dir, offline=args.offline)
+      wandb_logger = WandbLogger(name=exp_name, project=args.wandb_project, entity=args.wandb_entity, save_dir=save_dir, offline=args.offline)
   else:
-    wandb_logger = WandbLogger(name=exp_name, project='Test', entity=args.wandb_entity, save_dir=base_dir, offline=args.offline)
+    wandb_logger = WandbLogger(name=exp_name, project='Test', entity=args.wandb_entity, save_dir=save_dir, offline=args.offline)
   args.wandb_id = wandb_logger.version
 
   if args.checkpoint and not args.resume_training:

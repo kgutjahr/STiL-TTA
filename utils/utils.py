@@ -10,12 +10,17 @@ from torchvision import transforms
 import numpy as np
 
 def create_logdir(name: str, resume_training: bool, wandb_logger):
-  basepath = os.path.dirname(os.path.abspath(sys.argv[0]))
-  basepath = os.path.join(os.path.dirname(os.path.dirname(basepath)), 'result')
-  basepath = join(basepath, 'runs', name)
+  wandb_dir = os.getenv("WANDB_DIR")
+  if wandb_dir: 
+    save_dir = wandb_dir
+  else:
+    save_dir = os.path.dirname(os.path.abspath(sys.argv[0]))
+    save_dir = os.path.join(os.path.dirname(os.path.dirname(save_dir)), 'result')
+    
+  save_dir = join(save_dir, 'runs', name)
   # basepath = join(os.path.dirname(os.path.abspath(sys.argv[0])),'runs', name)
   run_name = wandb_logger.experiment.name
-  logdir = join(basepath,run_name)
+  logdir = join(save_dir,run_name)
   if os.path.exists(logdir) and not resume_training:
     raise Exception(f'Run {run_name} already exists. Please delete the folder {logdir} or choose a different run name.')
   os.makedirs(logdir,exist_ok=True)

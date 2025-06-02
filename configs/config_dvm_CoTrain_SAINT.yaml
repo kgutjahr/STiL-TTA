@@ -26,7 +26,7 @@ multitarget:
 wandb_entity: siyiwind
 host: cq
 data_base:
-data_base_cq: /bigdata/siyi/data/DVM/features
+data_base_cq: /mnt/data/kgutjahr/datasets/DVM/images
 data_base_bio: /vol/biomedic3/sd1523/data/mm/DVM/features
 data_base_hpc: /rds/general/user/sd1523/home/data/mm/DVM/features
 num_workers: 10
@@ -119,7 +119,7 @@ finetune_ensemble: False
 vec2vec: False
 checkpoint_vec2vec: 
 
-checkpoint: /vol/biomedic3/sd1523/project/mm/result/TIP_results/D20/MaskAttn_ran00spec05_dvm_0104_0938/checkpoint_last_epoch_499.ckpt
+checkpoint:
 checkpoint_SAINT: /vol/biomedic3/sd1523/project/mm/result/TIP_results/FD10/3e5_dvm_0121_1649/pretrained_last_499.pth
 datatype: imaging_and_tabular
 eval_datatype: imaging_and_tabular
