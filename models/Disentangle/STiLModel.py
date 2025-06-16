@@ -5,9 +5,8 @@ Use label smoothing (teacher-student, prototypes)
 ''''''
 Semi-supervised learning
 '''
-from typing import List, Tuple, Dict
+from typing import Tuple
 import sys
-import time
 
 import torch
 import torchmetrics
@@ -520,6 +519,10 @@ class STiLModel(pl.LightningModule):
         Runs test step
         """
         x,y = batch
+        
+        #if self.hparams.tta:
+        #    # TODO: Implement TTA here
+        
         y_hat, _, _, _, _, _, _, _ = self.model.forward(x)
 
         y_hat = torch.softmax(y_hat.detach(), dim=1)
