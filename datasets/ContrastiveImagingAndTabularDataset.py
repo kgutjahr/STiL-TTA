@@ -12,7 +12,7 @@ import albumentations as A
 import numpy as np
 
 import sys
-sys.path.append('/home/siyi/project/mm/multimodal/Semi-Disentangle_old')
+sys.path.append('/home/kgutjahr/STiL-TTA')
 from utils.utils import grab_image_augmentations
 
 def convert_to_float(x):
@@ -219,10 +219,10 @@ class ContrastiveImagingAndTabularDataset(Dataset):
 if __name__ == '__main__':
   transform = grab_image_augmentations(128, 'dvm', True)
   dataset = ContrastiveImagingAndTabularDataset(
-    data_path_imaging='/bigdata/siyi/data/DVM/features/val_paths_all_views.pt', delete_segmentation=False, augmentation=transform, augmentation_rate=1.0,
-    data_path_tabular='/bigdata/siyi/data/DVM/features/dvm_features_val_noOH_all_views_physical_jittered_50_reordered.csv', corruption_rate=0.15, target='dvm',
-    field_lengths_tabular='/bigdata/siyi/data/DVM/features/tabular_lengths_all_views_physical_reordered.pt', one_hot_tabular=False,
-    labels_path='/bigdata/siyi/data/DVM/features/labels_model_all_val_all_views.pt', img_size=128, live_loading=True, augmentation_speedup=True
+    data_path_imaging='/mnt/data/kgutjahr/datasets/DVM/images/val_paths_all_views.pt', delete_segmentation=False, augmentation=transform, augmentation_rate=1.0,
+    data_path_tabular='/mnt/data/kgutjahr/datasets/DVM/images/dvm_features_val_noOH_all_views_physical_jittered_50_reordered.csv', corruption_rate=0.15, target='dvm',
+    field_lengths_tabular='/mnt/data/kgutjahr/datasets/DVM/images/tabular_lengths_all_views_physical_reordered.pt', one_hot_tabular=False,
+    labels_path='/mnt/data/kgutjahr/datasets/DVM/images/labels_model_all_val_all_views.pt', img_size=128, live_loading=True, augmentation_speedup=True
   )
   a = list(range(17))
   x = dataset[3]
