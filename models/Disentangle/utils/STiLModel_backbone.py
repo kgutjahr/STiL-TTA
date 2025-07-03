@@ -8,7 +8,7 @@ import torch.nn as nn
 from omegaconf import  OmegaConf
 import sys
 # TODO: Change the path to your own project directory if you want to run this file alone for debugging 
-sys.path.append('/home/siyi/project/mm/STiL')
+sys.path.append('/home/kgutjahr/STiL-TTA')
 from models.self_supervised import torchvision_ssl_encoder
 
 from models.Transformer import TabularTransformerEncoder
@@ -169,7 +169,7 @@ class DisCoAttentionBackbone(nn.Module):
 if __name__ == "__main__":
   args = DotDict({'model': 'resnet50', 'checkpoint': None, 'algorithm_name': 'DISCO',
                   'num_cat': 26, 'num_con': 49, 'num_classes': 2, 
-                  'field_lengths_tabular': '/vol/biomedic3/sd1523/data/mm/DVM/features/tabular_lengths_all_views_physical_reordered.pt',
+                  'field_lengths_tabular': '/mnt/data/kgutjahr/datasets/DVM/shifted_dists/tabular_lengths_test_no_black.pt',
                   'tabular_embedding_dim': 512, 'tabular_transformer_num_layers': 4, 'multimodal_transformer_layers': 4,'embedding_dropout': 0.0, 'drop_rate':0.0,
                     'multimodal_embedding_dim': 512, 'multimodal_transformer_num_layers': 4,
                     'imaging_pretrained': False, 

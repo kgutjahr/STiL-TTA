@@ -219,10 +219,20 @@ class ContrastiveImagingAndTabularDataset(Dataset):
 if __name__ == '__main__':
   transform = grab_image_augmentations(128, 'dvm', True)
   dataset = ContrastiveImagingAndTabularDataset(
-    data_path_imaging='/mnt/data/kgutjahr/datasets/DVM/images/val_paths_all_views.pt', delete_segmentation=False, augmentation=transform, augmentation_rate=1.0,
-    data_path_tabular='/mnt/data/kgutjahr/datasets/DVM/images/dvm_features_val_noOH_all_views_physical_jittered_50_reordered.csv', corruption_rate=0.15, target='dvm',
+    data_path_imaging='/mnt/data/kgutjahr/datasets/DVM/images/train_paths_all_views.pt', delete_segmentation=False, augmentation=transform, augmentation_rate=1.0,
+    data_path_tabular='/mnt/data/kgutjahr/datasets/DVM/images/dvm_features_train_noOH_all_views_physical_jittered_50_reordered.csv', corruption_rate=0.15, target='dvm',
     field_lengths_tabular='/mnt/data/kgutjahr/datasets/DVM/images/tabular_lengths_all_views_physical_reordered.pt', one_hot_tabular=False,
-    labels_path='/mnt/data/kgutjahr/datasets/DVM/images/labels_model_all_val_all_views.pt', img_size=128, live_loading=True, augmentation_speedup=True
+    labels_path='/mnt/data/kgutjahr/datasets/DVM/images/labels_model_all_train_all_views.pt', img_size=128, live_loading=True, augmentation_speedup=True
   )
-  a = list(range(17))
-  x = dataset[3]
+  
+  dataset_x = ContrastiveImagingAndTabularDataset(
+    data_path_imaging='/mnt/data/kgutjahr/datasets/DVM/shifted_dists/image_paths_no_black_test.pt', delete_segmentation=False, augmentation=transform, augmentation_rate=1.0,
+    data_path_tabular='/mnt/data/kgutjahr/datasets/DVM/shifted_dists/dvm_features_no_black_test.csv', corruption_rate=0.15, target='dvm',
+    field_lengths_tabular='/mnt/data/kgutjahr/datasets/DVM/shifted_dists/tabular_lengths_test_no_black.pt', one_hot_tabular=False,
+    labels_path='/mnt/data/kgutjahr/datasets/DVM/shifted_dists/labels_no_black_test.pt', img_size=128, live_loading=True, augmentation_speedup=True
+  )
+  
+  print(len(dataset))
+  print(len(dataset_x))
+  
+  assert dataset[0][1][0].dtype == dataset_x[0][1][0].dtype

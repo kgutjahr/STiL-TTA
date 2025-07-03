@@ -11,9 +11,9 @@ import matplotlib.pyplot as plt
 
 # convert jpg image to numpy array
 def process_DVM(
-    DVM_feature_folder = '/mnt/data/kgutjahr/datasets/DVM/images'): 
+    DVM_feature_folder = '/mnt/data/kgutjahr/datasets/DVM/shifted_dists'): 
     for split in ['train', 'val', 'test']:
-        img_paths  = torch.load(os.path.join(DVM_feature_folder, '{}_paths_all_views.pt'.format(split)))
+        img_paths  = torch.load(os.path.join(DVM_feature_folder, 'image_paths_no_black_{}.pt'.format(split)))
         np_paths = []
         for path in tqdm(img_paths):
             img_np = plt.imread(path)
@@ -27,4 +27,4 @@ def process_DVM(
             
 
 if __name__ == '__main__':
-    process_DVM('/mnt/data/kgutjahr/datasets/DVM/images')
+    process_DVM('/mnt/data/kgutjahr/datasets/DVM/shifted_dists')
