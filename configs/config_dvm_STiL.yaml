@@ -26,7 +26,6 @@ multitarget:
 wandb_entity:
 host: cq
 data_base:
-data_base_cq: /mnt/data/kgutjahr/datasets/DVM/images
 data_base_bio: /vol/biomedic3/sd1523/data/mm/DVM/features
 data_base_hpc: /rds/general/user/sd1523/home/data/mm/DVM/features
 num_workers: 10

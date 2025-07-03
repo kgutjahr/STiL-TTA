@@ -5,6 +5,9 @@ defaults:
 target: dvm
 task: classification
 
+data_base: 
+data_base_cq: /mnt/data/kgutjahr/datasets/DVM/images
+
 num_classes: 286
 weights:
 live_loading: True
