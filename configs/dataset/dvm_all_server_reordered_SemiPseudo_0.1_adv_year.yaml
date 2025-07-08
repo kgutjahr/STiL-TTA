@@ -6,10 +6,10 @@ target: dvm
 task: classification
 
 data_base: 
-data_base_cq: /mnt/data/kgutjahr/datasets/DVM/shifted_dists/price
+data_base_cq: /mnt/data/kgutjahr/datasets/DVM/shifted_dists/Adv_year
 
 
-num_classes: 286
+num_classes: 281
 weights:
 live_loading: True
 delete_segmentation: False

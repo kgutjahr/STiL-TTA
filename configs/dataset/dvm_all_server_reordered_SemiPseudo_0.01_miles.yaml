@@ -6,9 +6,9 @@ target: dvm
 task: classification
 
 data_base: 
-data_base_cq: /mnt/data/kgutjahr/datasets/DVM/shifted_dists/b-s-b-g-w-r
+data_base_cq: /mnt/data/kgutjahr/datasets/DVM/shifted_dists/miles
 
-num_classes: 286
+num_classes: 278
 weights:
 live_loading: True
 delete_segmentation: False
