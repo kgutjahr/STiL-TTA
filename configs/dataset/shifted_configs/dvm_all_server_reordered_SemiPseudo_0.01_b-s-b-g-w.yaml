@@ -6,7 +6,7 @@ target: dvm
 task: classification
 
 data_base: 
-data_base_cq: /mnt/data/kgutjahr/datasets/DVM/shifted_dists/black-silver-grey
+data_base_cq: /mnt/data/kgutjahr/datasets/DVM/shifted_dists/too_small/b-s-b-g-w
 
 num_classes: 286
 weights:

@@ -6,9 +6,9 @@ target: dvm
 task: classification
 
 data_base: 
-data_base_cq: /mnt/data/kgutjahr/datasets/DVM/shifted_dists/black-silver-grey
+data_base_cq: /mnt/data/kgutjahr/datasets/DVM/shifted_dists/too_small/miles
 
-num_classes: 286
+num_classes: 278
 weights:
 live_loading: True
 delete_segmentation: False
@@ -23,7 +23,7 @@ num_con: 13
 
 labels_train: labels_train.pt
 labels_val: labels_val.pt 
-labelled_identification_train: train_labelled_identification_0.1.pt
+labelled_identification_train: train_labelled_identification_0.01.pt
 
 
 data_train_imaging: image_paths_train.pt
@@ -35,10 +35,10 @@ data_val_tabular: dvm_features_val.csv
 field_lengths_tabular: tabular_lengths.pt
 
 
-data_train_eval_tabular: dvm_features_train_0.1.csv
-labels_train_eval_tabular: labels_train_0.1.pt 
-data_train_eval_tabular_unlabelled: dvm_features_train_0.9.csv
-labels_train_eval_tabular_unlabelled: labels_train_0.9.pt
+data_train_eval_tabular: dvm_features_train_0.01.csv
+labels_train_eval_tabular: labels_train_0.01.pt 
+data_train_eval_tabular_unlabelled: dvm_features_train_0.99.csv
+labels_train_eval_tabular_unlabelled: labels_train_0.99.pt
 
 data_val_eval_tabular: dvm_features_val.csv
 labels_val_eval_tabular: labels_val.pt 
@@ -47,10 +47,10 @@ data_test_eval_tabular: dvm_features_test.csv
 labels_test_eval_tabular: labels_test.pt 
 
 
-data_train_eval_imaging: image_paths_train_0.1.pt
-labels_train_eval_imaging: labels_train_0.1.pt
-data_train_eval_imaging_unlabelled: image_paths_train_0.9.pt
-labels_train_eval_imaging_unlabelled: labels_train_0.9.pt
+data_train_eval_imaging: image_paths_train_0.01.pt
+labels_train_eval_imaging: labels_train_0.01.pt
+data_train_eval_imaging_unlabelled: image_paths_train_0.99.pt
+labels_train_eval_imaging_unlabelled: labels_train_0.99.pt
 
 data_val_eval_imaging: image_paths_val.pt
 labels_val_eval_imaging: labels_val.pt
