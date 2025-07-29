@@ -6,9 +6,9 @@ target: dvm
 task: classification
 
 data_base: 
-data_base_cq: /mnt/data/kgutjahr/datasets/DVM/shifted_dists/too_small/Adv_year
+data_base_cq: /mnt/data/kgutjahr/datasets/DVM/shifted_dists/too_small/Adv_year_test
 
-num_classes: 286
+num_classes: 281
 weights:
 live_loading: True
 delete_segmentation: False
