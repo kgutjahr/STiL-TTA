@@ -44,8 +44,8 @@ labels_train_eval_tabular_unlabelled: labels_train_0.9.pt
 data_val_eval_tabular: dvm_features_val_0.1.csv
 labels_val_eval_tabular: labels_val_0.1.pt 
 
-data_test_eval_tabular: dvm_features_test_0.1.csv
-labels_test_eval_tabular: labels_test_0.1.pt 
+data_test_eval_tabular: dvm_features_black_test_0.1.csv
+labels_test_eval_tabular: labels_black_test_0.1.pt 
 
 
 data_train_eval_imaging: image_paths_train_0.1.pt
@@ -56,5 +56,5 @@ labels_train_eval_imaging_unlabelled: labels_train_0.9.pt
 data_val_eval_imaging: image_paths_val_0.1.pt
 labels_val_eval_imaging: labels_val_0.1.pt
 
-data_test_eval_imaging: image_paths_test_0.1.pt 
-labels_test_eval_imaging: labels_test_0.1.pt
+data_test_eval_imaging: image_paths_black_test_0.1.pt 
+labels_test_eval_imaging: labels_black_test_0.1.pt

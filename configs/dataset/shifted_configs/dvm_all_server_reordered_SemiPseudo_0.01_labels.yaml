@@ -9,7 +9,7 @@ data_base:
 data_base_cq: /mnt/data/kgutjahr/datasets/DVM/shifted_dists/too_small/label
 
 
-num_classes: 284
+num_classes: 283
 weights:
 live_loading: True
 delete_segmentation: False
