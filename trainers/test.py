@@ -7,6 +7,7 @@ from datasets.ImagingAndTabularDataset import ImagingAndTabularDataset
 from datasets.TabularDataset import TabularDataset
 from omegaconf import OmegaConf
 import pandas as pd
+import os
 from os.path import join
 from utils.utils import grab_arg_from_checkpoint, grab_hard_eval_image_augmentations, grab_wids, create_logdir
 
@@ -83,7 +84,8 @@ def test(hparams, wandb_logger=None):
     
     mode = 'max'
     model.freeze()
-    trainer = Trainer.from_argparse_args(hparams, accelerator=trainer_accelerator, devices=cuda_visible_devices, logger=wandb_logger)
+    cuda_visible_devices = int(cuda_visible_devices) if cuda_visible_devices != None else 1
+    trainer = Trainer.from_argparse_args(hparams, accelerator=trainer_accelerator, devices=cuda_visible_devices+1, logger=wandb_logger)
     test_results = trainer.test(model, test_loader, ckpt_path=hparams.checkpoint)
     df = pd.DataFrame(test_results)
     df.to_csv(join(logdir, 'test_results.csv'), index=False)
