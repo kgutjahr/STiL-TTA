@@ -171,7 +171,7 @@ def evaluate(hparams, wandb_logger):
     callbacks = []
     callbacks.append(ModelCheckpoint(monitor=f'eval.val.{hparams.eval_metric}', mode=mode, filename=f'checkpoint_best_{hparams.eval_metric}', dirpath=logdir))
     scale = 40 if hparams.sweep==True else 100
-    callbacks.append(EarlyStopping(monitor=f'eval.val.{hparams.eval_metric}', min_delta=0.0001, patience=int(scale*(1/hparams.val_check_interval)), verbose=False, mode=mode))
+    callbacks.append(EarlyStopping(monitor=f'eval.val.{hparams.eval_metric}', min_delta=0.0001, patience=hparams.early_stop_patience, verbose=False, mode=mode))
     if hparams.use_wandb:
         callbacks.append(LearningRateMonitor(logging_interval='epoch'))
 

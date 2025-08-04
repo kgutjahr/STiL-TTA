@@ -92,7 +92,7 @@ weight_decay_classifier: 1.e-4
 online_mlp: True
 
 # Imaging
-augmentation_rate: 0.95
+augmentation_rate: 0.0
 crop_scale_lower: 0.08
 # use npy and albumentation for augmentation  
 augmentation_speedup: True
