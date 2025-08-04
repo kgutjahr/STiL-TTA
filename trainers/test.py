@@ -20,8 +20,8 @@ def test(hparams, wandb_logger=None):
     hparams:      All hyperparameters
     """
     pl.seed_everything(hparams.seed)
-    cuda_visible_devices = os.environ.get("CUDA_VISIBLE_DEVICES")
-    trainer_accelerator = "gpu" if cuda_visible_devices else "cpu"
+    cuda_visible_devices = os.environ.get("CUDA_VISIBLE_DEVICES", "")
+    trainer_accelerator = "gpu" if len(cuda_visible_devices) > 0 else "cpu"
   
     if hparams.eval_datatype == 'imaging':
         test_dataset = ImageDataset(hparams.data_test_eval_imaging, hparams.labels_test_eval_imaging, hparams.delete_segmentation, 0, grab_arg_from_checkpoint(hparams, 'img_size'), target=hparams.target, train=False, live_loading=hparams.live_loading, task=hparams.task,
@@ -84,8 +84,8 @@ def test(hparams, wandb_logger=None):
     
     mode = 'max'
     model.freeze()
-    cuda_visible_devices = int(cuda_visible_devices) if cuda_visible_devices != None else 1
-    trainer = Trainer.from_argparse_args(hparams, accelerator=trainer_accelerator, devices=cuda_visible_devices+1, logger=wandb_logger)
+    cuda_visible_devices = int(cuda_visible_devices) if len(cuda_visible_devices) > 0 else 1
+    trainer = Trainer.from_argparse_args(hparams, accelerator=trainer_accelerator, devices=cuda_visible_devices, logger=wandb_logger)
     test_results = trainer.test(model, test_loader, ckpt_path=hparams.checkpoint)
     df = pd.DataFrame(test_results)
     df.to_csv(join(logdir, 'test_results.csv'), index=False)
