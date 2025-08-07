@@ -213,5 +213,10 @@ labels_train_eval_imaging_unlabelled_short:
 data_train_eval_tabular_unlabelled_short:
 labels_train_eval_tabular_unlabelled_short:
 
-tta: True
+latent_augmentation:
+  modality:
+    - name: multimodal
+      method:
+        - name: extrapolation
+          lambda_: 0.5
 

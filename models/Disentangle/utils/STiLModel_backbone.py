@@ -5,7 +5,7 @@
 
 import torch
 import torch.nn as nn
-from omegaconf import  OmegaConf
+from omegaconf import  OmegaConf, DictConfig
 import sys
 # TODO: Change the path to your own project directory if you want to run this file alone for debugging 
 sys.path.append('/home/kgutjahr/STiL-TTA')
@@ -15,7 +15,7 @@ from models.Transformer import TabularTransformerEncoder
 from models.pieces import DotDict
 from models.Disentangle.utils.disentangle_transformer import MITransformerLayer
 from functools import partial, reduce
-from models.augmentation.latentEmbeddings import interpolate, extrapolate, mixstyle
+from models.augmentation.latentEmbeddings import extrapolate, mixstyle, random_noise
 
 
 class MLP(nn.Module):
@@ -150,24 +150,26 @@ class DisCoAttentionBackbone(nn.Module):
         return x_si, x_ai, x_st, x_at, x_c
     
 
-    def forward_all(self, x: torch.Tensor, visualize=False) -> torch.Tensor:
+    def forward_all(self, x: torch.Tensor, y: torch.Tensor, visualize=False) -> torch.Tensor:
         x_si, x_ai, x_st, x_at = self.forward_encoding_feature(x)
         x_si_enhance, x_ai, x_st_enhance, x_at, x_c = self.forward_multimodal_feature(x_si, x_ai, x_st, x_at)
         
-        imaging_input =    torch.ones(1, 5)#torch.cat([x_si_enhance, x_ai], dim=1)
-        tabular_input =    torch.ones(1, 5)#torch.cat([x_st_enhance, x_at], dim=1)
-        multimodal_input = torch.ones(1, 5)#torch.cat([x_si_enhance, x_c, x_st_enhance], dim=1)
+        imaging_input = torch.cat([x_si_enhance, x_ai], dim=1)
+        tabular_input = torch.cat([x_st_enhance, x_at], dim=1)
+        multimodal_input = torch.cat([x_si_enhance, x_c, x_st_enhance], dim=1)
 
-        aug_modality_list = list(self.augmentation_dict["modality"]) if not isinstance(self.augmentation_dict["modality"], list) else self.augmentation_dict["modality"]
-        
-        aug_image_dict = next((item for item in aug_modality_list if item["name"] == "image"), {})
-        imaging_input = self.run_augmentations(x=multimodal_input, augment_dict=aug_image_dict)
-        
-        aug_tabular_dict = next((item for item in aug_modality_list if item["name"] == "tabular"), {})
-        tabular_input = self.run_augmentations(x=multimodal_input, augment_dict=aug_tabular_dict)
-        
-        aug_modal_dict = next((item for item in aug_modality_list if item["name"] == "multimodal"), {})
-        multimodal_input = self.run_augmentations(x=multimodal_input, augment_dict=aug_modal_dict)
+        if isinstance(self.augmentation_dict, DictConfig):
+            if "modality" in self.augmentation_dict.keys():
+                aug_modality_list = list(self.augmentation_dict["modality"]) if not isinstance(self.augmentation_dict["modality"], list) else self.augmentation_dict["modality"]
+
+                aug_image_dict = next((item for item in aug_modality_list if item["name"] == "image"), {})
+                imaging_input = self.run_augmentations(x=imaging_input, y=y, augment_dict=aug_image_dict)
+
+                aug_tabular_dict = next((item for item in aug_modality_list if item["name"] == "tabular"), {})
+                tabular_input = self.run_augmentations(x=tabular_input, y=y, augment_dict=aug_tabular_dict)
+
+                aug_modal_dict = next((item for item in aug_modality_list if item["name"] == "multimodal"), {})
+                multimodal_input = self.run_augmentations(x=multimodal_input, y=y, augment_dict=aug_modal_dict)
 
         out_m = self.classifier_multimodal(multimodal_input)
         out_i = self.classifier_imaging(imaging_input)
@@ -183,19 +185,23 @@ class DisCoAttentionBackbone(nn.Module):
         out_t = self.classifier_tabular(torch.cat([x_st_enhance, x_at], dim=1))
         return out_m, out_i, out_t, x_si_enhance, x_ai, x_st_enhance, x_at, x_c
 
-    def run_augmentations(self, x: torch.Tensor, augment_dict: dict) -> torch.Tensor:
+    def run_augmentations(self, x: torch.Tensor, y: torch.Tensor, augment_dict: dict) -> torch.Tensor:
         if len(augment_dict) == 0:
             return x
         if len(augment_dict["method"]) == 0:
             return x
         
-        augment_func_dict = {"mixstyle": mixstyle, "interpolation": interpolate, "extrapolation": extrapolate}
+        augment_func_dict = {"mixstyle": mixstyle,
+                             "extrapolation": extrapolate,
+                             "noise": random_noise}
         chosen_methods = [m["name"] for m in augment_dict["method"]]
 
         pipeline = []
         for func in chosen_methods:
             aug_method_dict = next((item for item in augment_dict["method"] if item["name"] == func), {})
             aug_method_dict = {key: value for key, value in aug_method_dict.items() if key != "name"}
+            if func == "extrapolation":
+                aug_method_dict["y"] = y
             pipeline.append(partial(augment_func_dict[func], **aug_method_dict))
             
         return reduce(lambda val, fn: fn(val), pipeline, x)

@@ -237,7 +237,7 @@ class STiLModel(pl.LightningModule):
         assert torch.sum(label_identify_l) == len(label_identify_l)
         assert torch.sum(label_identify_u) == 0
         # use augmented image and tabular views
-        y_hat_m, y_hat_i, y_hat_t, x_si_enhance, x_si, x_ai, x_st_enhance, x_st, x_at, x_c = self.model.forward_all([torch.cat((im_views_l[1], im_views_u[1])), torch.cat((tab_views_l[1], tab_views_u[1]))]) 
+        y_hat_m, y_hat_i, y_hat_t, x_si_enhance, x_si, x_ai, x_st_enhance, x_st, x_at, x_c = self.model.forward_all(x=[torch.cat((im_views_l[1], im_views_u[1])), torch.cat((tab_views_l[1], tab_views_u[1]))], y=y_l) 
         prob_m = torch.softmax(y_hat_m.detach(), dim=1)
         prob_m_l, prob_m_u = prob_m[:B_l], prob_m[B_l:]
         feat_m = torch.cat((x_si_enhance, x_c, x_st_enhance), dim=1)
@@ -249,7 +249,7 @@ class STiLModel(pl.LightningModule):
         with torch.no_grad():
             if self.use_ema:
                 self.momentum_update_ema()
-                y_hat_m_e, y_hat_i_e, y_hat_t_e, x_si_enhance_e, _, _, x_st_enhance_e, _, _, x_c_e = self.ema.forward_all([torch.cat((im_views_l[1], im_views_u[1])), torch.cat((tab_views_l[1], tab_views_u[1]))])
+                y_hat_m_e, y_hat_i_e, y_hat_t_e, x_si_enhance_e, _, _, x_st_enhance_e, _, _, x_c_e = self.ema.forward_all(x=[torch.cat((im_views_l[1], im_views_u[1])), torch.cat((tab_views_l[1], tab_views_u[1]))], y=y_l)
                 feat_m_e = torch.cat((x_si_enhance_e, x_c_e, x_st_enhance_e), dim=1)
                 feat_m_e, _, _ = self.project_3features(feat_m_e, None, None)
             else:
@@ -428,7 +428,7 @@ class STiLModel(pl.LightningModule):
         # im_views, tab_views, y, original_im, _ = batch
         x, y = batch
         # use augmented image and tabular views
-        y_hat, y_i_hat, y_t_hat, x_si_enhance, x_si, x_ai, x_st_enhance, x_st, x_at, x_c = self.model.forward_all(x)
+        y_hat, y_i_hat, y_t_hat, x_si_enhance, x_si, x_ai, x_st_enhance, x_st, x_at, x_c = self.model.forward_all(x=x, y=y)
         feat_m = torch.cat((x_si_enhance, x_c, x_st_enhance), dim=1)
         feat_m, feat_i, feat_t = self.project_3features(feat_m, x_ai, x_at)
         # =============================  itc ======================================

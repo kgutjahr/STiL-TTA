@@ -213,5 +213,13 @@ labels_train_eval_imaging_unlabelled_short:
 data_train_eval_tabular_unlabelled_short:
 labels_train_eval_tabular_unlabelled_short:
 
-tta: True
-
+latent_augmentation:
+  #modality:
+  #  - name: image
+  #    method: 
+  #      - name: mixstyle
+  #        rate: 0.4
+  #      - name: interpolation
+  #        rate: 0.0
+  #      - name: extrapolation
+  #        rate: 0.9
