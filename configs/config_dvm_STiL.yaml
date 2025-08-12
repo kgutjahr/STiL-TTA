@@ -221,4 +221,5 @@ latent_augmentation:
           lambda_: 0.5
           rate: 0.5
           sample_randomly: False
+          seed: 2022
 

@@ -19,10 +19,11 @@ from lightly.models.modules import SimCLRProjectionHead
 from pl_bolts.optimizers.lr_scheduler import LinearWarmupCosineAnnealingLR
 
 # TODO: Change the path to your own project directory if you want to run this file alone for debugging 
-sys.path.append('/home/siyi/project/mm/STiL')
+sys.path.append('/home/kgutjahr/STiL-TTA')
 from models.Disentangle.utils.STiLModel_backbone import DisCoAttentionBackbone
 from utils.clip_loss import CLIPLoss
 from utils.prototype_loss import PrototypeLoss
+from utils.AugmentSummarizer import AugmentSummarizer
 from models.Disentangle.utils.club import CLUBMean
 
 
@@ -30,8 +31,11 @@ class STiLModel(pl.LightningModule):
     def __init__(self, hparams):
         super().__init__()
         self.save_hyperparameters(hparams)
+        
+        self.aug_summarizer = AugmentSummarizer()
+        self.teacher_aug_summarizer = AugmentSummarizer()
 
-        self.model = DisCoAttentionBackbone(self.hparams)
+        self.model = DisCoAttentionBackbone(self.hparams, self.aug_summarizer)
         print('Use STiLModel.py')
         
         self.pooled_dim = 2048 if self.hparams.model=='resnet50' else 512
@@ -85,7 +89,7 @@ class STiLModel(pl.LightningModule):
             print('Use EMA as teacher model')
             self.eman = self.hparams.eman
             self.momentum = self.hparams.ema_momentum
-            self.ema = DisCoAttentionBackbone(self.hparams)
+            self.ema = DisCoAttentionBackbone(self.hparams, self.teacher_aug_summarizer)
             for param_model, param_ema in zip(self.model.parameters(), self.ema.parameters()):
                 param_ema.data.copy_(param_model.data)
                 param_ema.requires_grad = False
@@ -237,7 +241,7 @@ class STiLModel(pl.LightningModule):
         assert torch.sum(label_identify_l) == len(label_identify_l)
         assert torch.sum(label_identify_u) == 0
         # use augmented image and tabular views
-        y_hat_m, y_hat_i, y_hat_t, x_si_enhance, x_si, x_ai, x_st_enhance, x_st, x_at, x_c = self.model.forward_all(x=[torch.cat((im_views_l[1], im_views_u[1])), torch.cat((tab_views_l[1], tab_views_u[1]))], y=y_l) 
+        y_hat_m, y_hat_i, y_hat_t, x_si_enhance, x_si, x_ai, x_st_enhance, x_st, x_at, x_c = self.model.forward_all(x=[torch.cat((im_views_l[1], im_views_u[1])), torch.cat((tab_views_l[1], tab_views_u[1]))], y=y_l)
         prob_m = torch.softmax(y_hat_m.detach(), dim=1)
         prob_m_l, prob_m_u = prob_m[:B_l], prob_m[B_l:]
         feat_m = torch.cat((x_si_enhance, x_c, x_st_enhance), dim=1)
@@ -390,6 +394,19 @@ class STiLModel(pl.LightningModule):
         """
         Compute training epoch metrics and check for new best values
         """
+        aug_sum = self.aug_summarizer.summarize()
+        teacher_aug_sum = self.teacher_aug_summarizer.summarize()
+        self.aug_summarizer.reset()
+        self.teacher_aug_summarizer.reset()
+
+        self.log('eval.train.latent.multi.aug_rate', aug_sum["multi_rate"], on_epoch=True, on_step=False)
+        self.log('eval.train.latent.image.aug_rate', aug_sum["image_rate"], on_epoch=True, on_step=False)
+        self.log('eval.train.latent.table.aug_rate', aug_sum["table_rate"], on_epoch=True, on_step=False)
+        
+        self.log('eval.train.teacher.latent.multi.aug_rate', teacher_aug_sum["multi_rate"], on_epoch=True, on_step=False)
+        self.log('eval.train.teacher.latent.image.aug_rate', teacher_aug_sum["image_rate"], on_epoch=True, on_step=False)
+        self.log('eval.train.teacher.latent.table.aug_rate', teacher_aug_sum["table_rate"], on_epoch=True, on_step=False)
+        
         self.log('eval.train.acc', self.acc_train, on_epoch=True, on_step=False, metric_attribute=self.acc_train)
         self.log('eval.train.auc', self.auc_train, on_epoch=True, on_step=False, metric_attribute=self.auc_train)
         self.log('eval.train_unlabelled.acc', self.acc_train_unlabelled, on_epoch=True, on_step=False, metric_attribute=self.acc_train_unlabelled)

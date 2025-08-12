@@ -15,6 +15,7 @@ from models.Transformer import TabularTransformerEncoder
 from models.pieces import DotDict
 from models.Disentangle.utils.disentangle_transformer import MITransformerLayer
 from functools import partial, reduce
+from utils.AugmentSummarizer import AugmentSummarizer
 from models.augmentation.latentEmbeddings import extrapolate, mixstyle, random_noise
 
 
@@ -44,7 +45,7 @@ class DisCoAttentionBackbone(nn.Module):
         tabular features: x_st, x_at
         prediction
     '''
-    def __init__(self, args) -> None:
+    def __init__(self, args, aug_summarizer: AugmentSummarizer) -> None:
         super(DisCoAttentionBackbone, self).__init__()
 
         self.create_imaging_model(args)
@@ -52,6 +53,8 @@ class DisCoAttentionBackbone(nn.Module):
         self.pooled_dim = args.embedding_dim
         self.hidden_dim = args.multimodal_embedding_dim
         self.augmentation_dict = args.latent_augmentation
+        
+        self.aug_summarizer = aug_summarizer
 
         self.projection_si = MLP(self.pooled_dim, self.hidden_dim, self.hidden_dim)
         self.projection_ai = MLP(self.pooled_dim, self.hidden_dim, self.hidden_dim)
@@ -163,13 +166,19 @@ class DisCoAttentionBackbone(nn.Module):
                 aug_modality_list = list(self.augmentation_dict["modality"]) if not isinstance(self.augmentation_dict["modality"], list) else self.augmentation_dict["modality"]
 
                 aug_image_dict = next((item for item in aug_modality_list if item["name"] == "image"), {})
-                imaging_input = self.run_augmentations(x=imaging_input, y=y, augment_dict=aug_image_dict)
+                imaging_input_aug = self.run_augmentations(x=imaging_input, y=y, augment_dict=aug_image_dict)
+                self.aug_summarizer.register_rate(A=imaging_input, B=imaging_input_aug, modality="image")
+                imaging_input = imaging_input_aug
 
                 aug_tabular_dict = next((item for item in aug_modality_list if item["name"] == "tabular"), {})
-                tabular_input = self.run_augmentations(x=tabular_input, y=y, augment_dict=aug_tabular_dict)
+                tabular_input_aug = self.run_augmentations(x=tabular_input, y=y, augment_dict=aug_tabular_dict)
+                self.aug_summarizer.register_rate(A=tabular_input, B=tabular_input_aug, modality="tabular")
+                tabular_input = tabular_input_aug
 
                 aug_modal_dict = next((item for item in aug_modality_list if item["name"] == "multimodal"), {})
-                multimodal_input = self.run_augmentations(x=multimodal_input, y=y, augment_dict=aug_modal_dict)
+                multimodal_input_aug = self.run_augmentations(x=multimodal_input, y=y, augment_dict=aug_modal_dict)
+                self.aug_summarizer.register_rate(A=multimodal_input, B=multimodal_input_aug, modality="multimodal")
+                multimodal_input = multimodal_input_aug
 
         out_m = self.classifier_multimodal(multimodal_input)
         out_i = self.classifier_imaging(imaging_input)
