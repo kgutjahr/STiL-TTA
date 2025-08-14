@@ -3,3 +3,4 @@ __pycache__/
 outputs/
 *.ckpt
 screenlog.0
+.vscode/

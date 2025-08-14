@@ -1,7 +1,8 @@
 import torch
 import random
+from itertools import permutations, combinations
 
-def get_same_class_points(x: torch.Tensor, y: torch.Tensor) -> dict:
+def get_same_class_points(y: torch.Tensor) -> dict:
     index_map = {}
 
     for idx, val in enumerate(y.tolist()):
@@ -11,15 +12,26 @@ def get_same_class_points(x: torch.Tensor, y: torch.Tensor) -> dict:
             index_map[val] = [idx]
     return index_map
 
+def sample_unique_first(data, seed=None):
+    if seed is not None:
+        random.seed(seed)
+    # group by the first element
+    groups = {}
+    for t in data:
+        groups.setdefault(t[0], []).append(t)
+    # randomly choose one permutation from each group
+    result = [random.choice(v) for v in groups.values()]
+    return result
+
 # only extrapolate datapoints from the same class
-def extrapolate(x: torch.Tensor, lambda_: float, y: torch.Tensor, rate: float, sample_randomly: bool, seed: float) -> torch.Tensor:
+def extrapolate(x: torch.Tensor, lambda_: float, y: torch.Tensor, rate: float, sample_randomly: bool, seed: int) -> torch.Tensor:
     if rate == 0.0:
         return x
 
     rng = random.Random(seed)
     
     if not sample_randomly:
-        index_map = get_same_class_points(x=x, y=y)
+        index_map = get_same_class_points(y=y)
         # Filter to keep only duplicates
         candidates = [v for _, v in index_map.items() if len(v) > 1]
         
@@ -45,17 +57,19 @@ def extrapolate(x: torch.Tensor, lambda_: float, y: torch.Tensor, rate: float, s
         add_pairs = [p[::-1] for p in pair_list]
         pair_list.extend(add_pairs)
 
-    if len(pair_list) < 0:
+    pair_list = sample_unique_first(data=pair_list, seed=seed)
+
+    if len(pair_list) == 0:
         return x
     
     # only extrapolate certain amount of pairs
     num_to_keep = int(len(pair_list) * rate)
     num_to_keep = max(num_to_keep, 1)
 
-    z = x.clone()
     # Randomly select sample of the pairs
     kept_pairs = rng.sample(pair_list, num_to_keep)
 
+    z = x.clone()
     # actually extrapolate the tensors
     pairs = torch.tensor(kept_pairs)
 
@@ -88,7 +102,7 @@ def random_noise(x: torch.Tensor, rate: float, min_range: float, max_range: floa
         z[i] = x[i] * rand_sample_mul
     return z
 
-def mixstyle(x: torch.Tensor, rate: float, alpha: float, seed: float) -> torch.Tensor:
+def mixstyle(x: torch.Tensor, rate: float, alpha: float, seed: int) -> torch.Tensor:
     if rate == 0.0:
         return x
 
@@ -130,12 +144,61 @@ def mixstyle(x: torch.Tensor, rate: float, alpha: float, seed: float) -> torch.T
     z[selected_indices] = gamma_mix * ((x_sel - x_mean) / x_std) + beta_mix
     return z
 
+def linear_delta(x: torch.Tensor, y: torch.Tensor, sample_randomly: bool, rate: float, seed: int) -> torch.Tensor:
+    if rate == 0.0:
+        return x
+    
+    triple_list = []
+    if not sample_randomly:
+        index_map = get_same_class_points(y=y)
+        candidates = [v for _, v in index_map.items() if len(v) > 1]
+        filtered_cand = [c for c in candidates if len(c) > 2]
+        triple_list.extend([tuple(p) for inner in filtered_cand for p in permutations(inner, 3)])
+    else:
+        x_len = torch.tensor(list(range(0, len(x))))
+        shuffled = x_len[torch.randperm(len(x))].tolist()
+        triple_list = list(combinations(shuffled, 3))
+    
+    if len(triple_list) == 0:
+        return x
+    
+    kept_triples = sample_unique_first(data=triple_list, seed=seed)
+    
+    # only extrapolate certain amount of pairs
+    num_to_keep = int(len(kept_triples) * rate)
+    num_to_keep = max(num_to_keep, 1)
+
+    z = x.clone()
+    # Randomly select sample of the pairs
+    rng = random.Random(seed)
+    kept_triples = rng.sample(kept_triples, num_to_keep)
+    
+    # actually extrapolate the tensors
+    triples = torch.tensor(kept_triples)
+
+    i_indices = triples[:, 0]
+    j_indices = triples[:, 1]
+    k_indices = triples[:, 2]
+
+    x_i = x[i_indices]
+    x_j = x[j_indices]
+    x_k = x[k_indices]
+
+    z[k_indices] = (x_i - x_j) + x_k
+    return z
+
 if __name__ == "__main__":
-    x = torch.rand([4, 4])
+    x = torch.rand([20, 4])
     y = torch.randint(low=0, high=286, size=(x.size()[0],))
     y[1] = 24
     y[2] = 24
-    print(y)
+    y[3] = 24
+    #
+    y[6] = 17
+    y[9] = 17
+    y[16] = 17
+    print(x)
     
-    z = extrapolate(x=x, lambda_=0.5, y=y, rate=0.75, sample_randomly=False, seed=2022)
-    print(get_augment_rate(A=x, B=z))
+    z = extrapolate(x=x, y=y, lambda_=0.5, rate=0.75, sample_randomly=True, seed=2022)
+    
+    print(z)

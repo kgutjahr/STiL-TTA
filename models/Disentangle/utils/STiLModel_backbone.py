@@ -16,7 +16,7 @@ from models.pieces import DotDict
 from models.Disentangle.utils.disentangle_transformer import MITransformerLayer
 from functools import partial, reduce
 from utils.AugmentSummarizer import AugmentSummarizer
-from models.augmentation.latentEmbeddings import extrapolate, mixstyle, random_noise
+from models.augmentation.latentEmbeddings import extrapolate, mixstyle, random_noise, linear_delta
 
 
 class MLP(nn.Module):
@@ -202,14 +202,17 @@ class DisCoAttentionBackbone(nn.Module):
         
         augment_func_dict = {"mixstyle": mixstyle,
                              "extrapolation": extrapolate,
-                             "noise": random_noise}
+                             "noise": random_noise,
+                             "linear_delta": linear_delta}
+        
+
         chosen_methods = [m["name"] for m in augment_dict["method"]]
 
         pipeline = []
         for func in chosen_methods:
             aug_method_dict = next((item for item in augment_dict["method"] if item["name"] == func), {})
             aug_method_dict = {key: value for key, value in aug_method_dict.items() if key != "name"}
-            if func == "extrapolation":
+            if func in ("extrapolation", "linear_delta"):
                 aug_method_dict["y"] = y
             pipeline.append(partial(augment_func_dict[func], **aug_method_dict))
             
