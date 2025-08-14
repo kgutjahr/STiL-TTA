@@ -1,50 +1,29 @@
 #!/bin/bash
 
-CUDA_VISIBLE_DEVICES=1 python -u run.py --config-name augment_configs/config_dvm_STiL_input_nothing_latent_image_delta dataset=shifted_configs/dvm_all_server_reordered_SemiPseudo_0.1_black exp_name=/latent_augmentation_results/latent_only/black_image_delta evaluate=True
-CUDA_VISIBLE_DEVICES=1 python -u run.py --config-name augment_configs/config_dvm_STiL_input_nothing_latent_image_extrapolation dataset=shifted_configs/dvm_all_server_reordered_SemiPseudo_0.1_black exp_name=/latent_augmentation_results/latent_only/black_image_extrapolation evaluate=True
-CUDA_VISIBLE_DEVICES=1 python -u run.py --config-name augment_configs/config_dvm_STiL_input_nothing_latent_image_mixstyle dataset=shifted_configs/dvm_all_server_reordered_SemiPseudo_0.1_black exp_name=/latent_augmentation_results/latent_only/black_image_mixstyle evaluate=True
-CUDA_VISIBLE_DEVICES=1 python -u run.py --config-name augment_configs/config_dvm_STiL_input_nothing_latent_image_noise dataset=shifted_configs/dvm_all_server_reordered_SemiPseudo_0.1_black exp_name=/latent_augmentation_results/latent_only/black_image_noise evaluate=True
+# Define parameters
+DATASETS=("black" "miles" "normal")
+MODALITIES=("image" "tabular" "multi")
+AUGS=("delta" "extrapolation" "mixstyle" "noise")
 
-CUDA_VISIBLE_DEVICES=1 python -u run.py --config-name augment_configs/config_dvm_STiL_input_nothing_latent_tabular_delta dataset=shifted_configs/dvm_all_server_reordered_SemiPseudo_0.1_black exp_name=/latent_augmentation_results/latent_only/black_tabular_delta evaluate=True
-CUDA_VISIBLE_DEVICES=1 python -u run.py --config-name augment_configs/config_dvm_STiL_input_nothing_latent_tabular_extrapolation dataset=shifted_configs/dvm_all_server_reordered_SemiPseudo_0.1_black exp_name=/latent_augmentation_results/latent_only/black_tabular_extrapolation evaluate=True
-CUDA_VISIBLE_DEVICES=1 python -u run.py --config-name augment_configs/config_dvm_STiL_input_nothing_latent_tabular_mixstyle dataset=shifted_configs/dvm_all_server_reordered_SemiPseudo_0.1_black exp_name=/latent_augmentation_results/latent_only/black_tabular_mixstyle evaluate=True
-CUDA_VISIBLE_DEVICES=1 python -u run.py --config-name augment_configs/config_dvm_STiL_input_nothing_latent_tabular_noise dataset=shifted_configs/dvm_all_server_reordered_SemiPseudo_0.1_black exp_name=/latent_augmentation_results/latent_only/black_tabular_noise evaluate=True
+# Create log directory if it doesn't exist
+mkdir -p error_logs
 
-CUDA_VISIBLE_DEVICES=1 python -u run.py --config-name augment_configs/config_dvm_STiL_input_nothing_latent_multi_delta dataset=shifted_configs/dvm_all_server_reordered_SemiPseudo_0.1_black exp_name=/latent_augmentation_results/latent_only/black_multi_delta evaluate=True
-CUDA_VISIBLE_DEVICES=1 python -u run.py --config-name augment_configs/config_dvm_STiL_input_nothing_latent_multi_extrapolation dataset=shifted_configs/dvm_all_server_reordered_SemiPseudo_0.1_black exp_name=/latent_augmentation_results/latent_only/black_multi_extrapolation evaluate=True
-CUDA_VISIBLE_DEVICES=1 python -u run.py --config-name augment_configs/config_dvm_STiL_input_nothing_latent_multi_mixstyle dataset=shifted_configs/dvm_all_server_reordered_SemiPseudo_0.1_black exp_name=/latent_augmentation_results/latent_only/black_multi_mixstyle evaluate=True
-CUDA_VISIBLE_DEVICES=1 python -u run.py --config-name augment_configs/config_dvm_STiL_input_nothing_latent_multi_noise dataset=shifted_configs/dvm_all_server_reordered_SemiPseudo_0.1_black exp_name=/latent_augmentation_results/latent_only/black_multi_noise evaluate=True
+# Loop over all combinations
+for ds in "${DATASETS[@]}"; do
+  for mod in "${MODALITIES[@]}"; do
+    for aug in "${AUGS[@]}"; do
 
+      CONFIG="augment_configs/config_dvm_STiL_input_nothing_latent_${mod}_${aug}"
+      EXP="/latent_augmentation_results/latent_only/${ds}_${mod}_${aug}"
+      LOG="error_logs/${ds}_${mod}_${aug}.log"
 
+      CUDA_VISIBLE_DEVICES=1 python -u run.py \
+        --config-name "$CONFIG" \
+        dataset="shifted_configs/dvm_all_server_reordered_SemiPseudo_0.1_${ds}" \
+        exp_name="$EXP" \
+        evaluate=True \
+        2> "$LOG"
 
-CUDA_VISIBLE_DEVICES=1 python -u run.py --config-name augment_configs/config_dvm_STiL_input_nothing_latent_image_delta dataset=shifted_configs/dvm_all_server_reordered_SemiPseudo_0.1_miles exp_name=/latent_augmentation_results/latent_only/miles_image_delta evaluate=True
-CUDA_VISIBLE_DEVICES=1 python -u run.py --config-name augment_configs/config_dvm_STiL_input_nothing_latent_image_extrapolation dataset=shifted_configs/dvm_all_server_reordered_SemiPseudo_0.1_miles exp_name=/latent_augmentation_results/latent_only/miles_image_extrapolation evaluate=True
-CUDA_VISIBLE_DEVICES=1 python -u run.py --config-name augment_configs/config_dvm_STiL_input_nothing_latent_image_mixstyle dataset=shifted_configs/dvm_all_server_reordered_SemiPseudo_0.1_miles exp_name=/latent_augmentation_results/latent_only/miles_image_mixstyle evaluate=True
-CUDA_VISIBLE_DEVICES=1 python -u run.py --config-name augment_configs/config_dvm_STiL_input_nothing_latent_image_noise dataset=shifted_configs/dvm_all_server_reordered_SemiPseudo_0.1_miles exp_name=/latent_augmentation_results/latent_only/miles_image_noise evaluate=True
-
-CUDA_VISIBLE_DEVICES=1 python -u run.py --config-name augment_configs/config_dvm_STiL_input_nothing_latent_tabular_delta dataset=shifted_configs/dvm_all_server_reordered_SemiPseudo_0.1_miles exp_name=/latent_augmentation_results/latent_only/miles_tabular_delta evaluate=True
-CUDA_VISIBLE_DEVICES=1 python -u run.py --config-name augment_configs/config_dvm_STiL_input_nothing_latent_tabular_extrapolation dataset=shifted_configs/dvm_all_server_reordered_SemiPseudo_0.1_miles exp_name=/latent_augmentation_results/latent_only/miles_tabular_extrapolation evaluate=True
-CUDA_VISIBLE_DEVICES=1 python -u run.py --config-name augment_configs/config_dvm_STiL_input_nothing_latent_tabular_mixstyle dataset=shifted_configs/dvm_all_server_reordered_SemiPseudo_0.1_miles exp_name=/latent_augmentation_results/latent_only/miles_tabular_mixstyle evaluate=True
-CUDA_VISIBLE_DEVICES=1 python -u run.py --config-name augment_configs/config_dvm_STiL_input_nothing_latent_tabular_noise dataset=shifted_configs/dvm_all_server_reordered_SemiPseudo_0.1_miles exp_name=/latent_augmentation_results/latent_only/miles_tabular_noise evaluate=True
-
-CUDA_VISIBLE_DEVICES=1 python -u run.py --config-name augment_configs/config_dvm_STiL_input_nothing_latent_multi_delta dataset=shifted_configs/dvm_all_server_reordered_SemiPseudo_0.1_miles exp_name=/latent_augmentation_results/latent_only/miles_multi_delta evaluate=True
-CUDA_VISIBLE_DEVICES=1 python -u run.py --config-name augment_configs/config_dvm_STiL_input_nothing_latent_multi_extrapolation dataset=shifted_configs/dvm_all_server_reordered_SemiPseudo_0.1_miles exp_name=/latent_augmentation_results/latent_only/miles_multi_extrapolation evaluate=True
-CUDA_VISIBLE_DEVICES=1 python -u run.py --config-name augment_configs/config_dvm_STiL_input_nothing_latent_multi_mixstyle dataset=shifted_configs/dvm_all_server_reordered_SemiPseudo_0.1_miles exp_name=/latent_augmentation_results/latent_only/miles_multi_mixstyle evaluate=True
-CUDA_VISIBLE_DEVICES=1 python -u run.py --config-name augment_configs/config_dvm_STiL_input_nothing_latent_multi_noise dataset=shifted_configs/dvm_all_server_reordered_SemiPseudo_0.1_miles exp_name=/latent_augmentation_results/latent_only/miles_multi_noise evaluate=True
-
-
-
-CUDA_VISIBLE_DEVICES=1 python -u run.py --config-name augment_configs/config_dvm_STiL_input_nothing_latent_image_delta dataset=shifted_configs/dvm_all_server_reordered_SemiPseudo_0.1_normal exp_name=/latent_augmentation_results/latent_only/normal_image_delta evaluate=True
-CUDA_VISIBLE_DEVICES=1 python -u run.py --config-name augment_configs/config_dvm_STiL_input_nothing_latent_image_extrapolation dataset=shifted_configs/dvm_all_server_reordered_SemiPseudo_0.1_normal exp_name=/latent_augmentation_results/latent_only/normal_image_extrapolation evaluate=True
-CUDA_VISIBLE_DEVICES=1 python -u run.py --config-name augment_configs/config_dvm_STiL_input_nothing_latent_image_mixstyle dataset=shifted_configs/dvm_all_server_reordered_SemiPseudo_0.1_normal exp_name=/latent_augmentation_results/latent_only/normal_image_mixstyle evaluate=True
-CUDA_VISIBLE_DEVICES=1 python -u run.py --config-name augment_configs/config_dvm_STiL_input_nothing_latent_image_noise dataset=shifted_configs/dvm_all_server_reordered_SemiPseudo_0.1_normal exp_name=/latent_augmentation_results/latent_only/normal_image_noise evaluate=True
-
-CUDA_VISIBLE_DEVICES=1 python -u run.py --config-name augment_configs/config_dvm_STiL_input_nothing_latent_tabular_delta dataset=shifted_configs/dvm_all_server_reordered_SemiPseudo_0.1_normal exp_name=/latent_augmentation_results/latent_only/normal_tabular_delta evaluate=True
-CUDA_VISIBLE_DEVICES=1 python -u run.py --config-name augment_configs/config_dvm_STiL_input_nothing_latent_tabular_extrapolation dataset=shifted_configs/dvm_all_server_reordered_SemiPseudo_0.1_normal exp_name=/latent_augmentation_results/latent_only/normal_tabular_extrapolation evaluate=True
-CUDA_VISIBLE_DEVICES=1 python -u run.py --config-name augment_configs/config_dvm_STiL_input_nothing_latent_tabular_mixstyle dataset=shifted_configs/dvm_all_server_reordered_SemiPseudo_0.1_normal exp_name=/latent_augmentation_results/latent_only/normal_tabular_mixstyle evaluate=True
-CUDA_VISIBLE_DEVICES=1 python -u run.py --config-name augment_configs/config_dvm_STiL_input_nothing_latent_tabular_noise dataset=shifted_configs/dvm_all_server_reordered_SemiPseudo_0.1_normal exp_name=/latent_augmentation_results/latent_only/normal_tabular_noise evaluate=True
-
-CUDA_VISIBLE_DEVICES=1 python -u run.py --config-name augment_configs/config_dvm_STiL_input_nothing_latent_multi_delta dataset=shifted_configs/dvm_all_server_reordered_SemiPseudo_0.1_normal exp_name=/latent_augmentation_results/latent_only/normal_multi_delta evaluate=True
-CUDA_VISIBLE_DEVICES=1 python -u run.py --config-name augment_configs/config_dvm_STiL_input_nothing_latent_multi_extrapolation dataset=shifted_configs/dvm_all_server_reordered_SemiPseudo_0.1_normal exp_name=/latent_augmentation_results/latent_only/normal_multi_extrapolation evaluate=True
-CUDA_VISIBLE_DEVICES=1 python -u run.py --config-name augment_configs/config_dvm_STiL_input_nothing_latent_multi_mixstyle dataset=shifted_configs/dvm_all_server_reordered_SemiPseudo_0.1_normal exp_name=/latent_augmentation_results/latent_only/normal_multi_mixstyle evaluate=True
-CUDA_VISIBLE_DEVICES=1 python -u run.py --config-name augment_configs/config_dvm_STiL_input_nothing_latent_multi_noise dataset=shifted_configs/dvm_all_server_reordered_SemiPseudo_0.1_normal exp_name=/latent_augmentation_results/latent_only/normal_multi_noise evaluate=True
+    done
+  done
+done
