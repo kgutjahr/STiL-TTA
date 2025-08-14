@@ -111,7 +111,7 @@ def exception(self):
     self._exception = self._pconn.recv()
   return self._exception
 
-@hydra.main(config_path='./configs', config_name='config_biomedia', version_base=None)
+@hydra.main(config_path='./configs/augment_configs', config_name='config_biomedia', version_base=None)
 def control(args: DictConfig):
   run(args)
 
