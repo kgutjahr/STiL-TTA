@@ -14,7 +14,7 @@ for ds in "${DATASETS[@]}"; do
     for aug in "${AUGS[@]}"; do
 
       CONFIG="config_dvm_STiL_input_nothing_latent_${mod}_${aug}"
-      EXP="/latent_augmentation_results/latent_only/${ds}_${mod}_${aug}"
+      EXP="latent_augmentation_results/latent_only/${ds}_${mod}_${aug}"
       LOG="error_logs/${ds}_${mod}_${aug}.log"
 
       echo ">>> Running: dataset=$ds, modality=$mod, aug=$aug"
