@@ -16,7 +16,7 @@ from models.pieces import DotDict
 from models.Disentangle.utils.disentangle_transformer import MITransformerLayer
 from functools import partial, reduce
 from utils.AugmentSummarizer import AugmentSummarizer
-from models.augmentation.latentEmbeddings import extrapolate, mixstyle, random_noise, linear_delta
+import models.augmentation.latentEmbeddings as latentAug
 
 
 class MLP(nn.Module):
@@ -157,28 +157,38 @@ class DisCoAttentionBackbone(nn.Module):
         x_si, x_ai, x_st, x_at = self.forward_encoding_feature(x)
         x_si_enhance, x_ai, x_st_enhance, x_at, x_c = self.forward_multimodal_feature(x_si, x_ai, x_st, x_at)
         
+        if isinstance(self.augmentation_dict, DictConfig):
+            if ({"modality", "when"} <= self.augmentation_dict.keys()) and (self.augmentation_dict["when"] == "CGPL"):
+                aug_modality_list = list(self.augmentation_dict["modality"]) if not isinstance(self.augmentation_dict["modality"], list) else self.augmentation_dict["modality"]
+                aug_modality_list = self.add_common_idx(aug_modality_list=aug_modality_list, y=y, image_t=x_si_enhance, table_t=x_st_enhance, shared_t=x_c)
+                # augment the enhanced embeddings coming directly from the DCC part  
+                x_si_enhance = self.augment(aug_modality_list=aug_modality_list, input_vec=x_si_enhance, modality="image", y=y)
+                x_st_enhance = self.augment(aug_modality_list=aug_modality_list, input_vec=x_st_enhance, modality="tabular", y=y)
+                x_c = self.augment(aug_modality_list=aug_modality_list, input_vec=x_c, modality="multimodal", y=y)
+        
         imaging_input = torch.cat([x_si_enhance, x_ai], dim=1)
         tabular_input = torch.cat([x_st_enhance, x_at], dim=1)
         multimodal_input = torch.cat([x_si_enhance, x_c, x_st_enhance], dim=1)
 
         if isinstance(self.augmentation_dict, DictConfig):
-            if "modality" in self.augmentation_dict.keys():
+            if ({"modality", "when"} <= self.augmentation_dict.keys()) and (self.augmentation_dict["when"] == "classifier"):
                 aug_modality_list = list(self.augmentation_dict["modality"]) if not isinstance(self.augmentation_dict["modality"], list) else self.augmentation_dict["modality"]
-
-                aug_image_dict = next((item for item in aug_modality_list if item["name"] == "image"), {})
-                imaging_input_aug = self.run_augmentations(x=imaging_input, y=y, augment_dict=aug_image_dict)
-                self.aug_summarizer.register_rate(A=imaging_input, B=imaging_input_aug, modality="image")
-                imaging_input = imaging_input_aug
-
-                aug_tabular_dict = next((item for item in aug_modality_list if item["name"] == "tabular"), {})
-                tabular_input_aug = self.run_augmentations(x=tabular_input, y=y, augment_dict=aug_tabular_dict)
-                self.aug_summarizer.register_rate(A=tabular_input, B=tabular_input_aug, modality="tabular")
-                tabular_input = tabular_input_aug
-
-                aug_modal_dict = next((item for item in aug_modality_list if item["name"] == "multimodal"), {})
-                multimodal_input_aug = self.run_augmentations(x=multimodal_input, y=y, augment_dict=aug_modal_dict)
-                self.aug_summarizer.register_rate(A=multimodal_input, B=multimodal_input_aug, modality="multimodal")
-                multimodal_input = multimodal_input_aug
+                aug_modality_list = self.add_common_idx(aug_modality_list=aug_modality_list, y=y, image_t=imaging_input, table_t=tabular_input, shared_t=multimodal_input)
+                # augment embedding for image classifier
+                
+                # temporary change to fill table, change back to augmenting all components later
+                imaging_input = self.augment(aug_modality_list=aug_modality_list, input_vec=imaging_input, modality="image", y=y)
+                #x_ai = self.augment(aug_modality_list=aug_modality_list, input_vec=x_ai, modality="image", y=y)
+                #imaging_input = torch.cat([x_si_enhance, x_ai], dim=1)
+                # augment embedding for tabular classifier
+                tabular_input = self.augment(aug_modality_list=aug_modality_list, input_vec=tabular_input, modality="tabular", y=y)
+                #x_at = self.augment(aug_modality_list=aug_modality_list, input_vec=x_at, modality="tabular", y=y)
+                #tabular_input = torch.cat([x_st_enhance, x_at], dim=1)
+                # augment embedding for multimodal classifier
+                multimodal_input = self.augment(aug_modality_list=aug_modality_list, input_vec=multimodal_input, modality="multimodal", y=y)
+                #x_st_enhance = self.augment(aug_modality_list=aug_modality_list, input_vec=x_st_enhance, modality="multimodal", y=y)
+                #x_c = self.augment(aug_modality_list=aug_modality_list, input_vec=x_c, modality="multimodal", y=y)
+                #multimodal_input = torch.cat([x_si_enhance, x_c, x_st_enhance], dim=1)
 
         out_m = self.classifier_multimodal(multimodal_input)
         out_i = self.classifier_imaging(imaging_input)
@@ -194,17 +204,16 @@ class DisCoAttentionBackbone(nn.Module):
         out_t = self.classifier_tabular(torch.cat([x_st_enhance, x_at], dim=1))
         return out_m, out_i, out_t, x_si_enhance, x_ai, x_st_enhance, x_at, x_c
 
-    def run_augmentations(self, x: torch.Tensor, y: torch.Tensor, augment_dict: dict) -> torch.Tensor:
+    def run_augmentations(self, x: torch.Tensor, y: torch.Tensor, augment_dict: dict, repeat_idx: list = []) -> torch.Tensor:
         if len(augment_dict) == 0:
             return x
         if len(augment_dict["method"]) == 0:
             return x
         
-        augment_func_dict = {"mixstyle": mixstyle,
-                             "extrapolation": extrapolate,
-                             "noise": random_noise,
-                             "linear_delta": linear_delta}
-        
+        augment_func_dict = {"mixstyle": latentAug.mixstyle,
+                             "extrapolation": latentAug.extrapolate,
+                             "noise": latentAug.random_noise,
+                             "linear_delta": latentAug.linear_delta}
 
         chosen_methods = [m["name"] for m in augment_dict["method"]]
 
@@ -217,7 +226,26 @@ class DisCoAttentionBackbone(nn.Module):
             pipeline.append(partial(augment_func_dict[func], **aug_method_dict))
             
         return reduce(lambda val, fn: fn(val), pipeline, x)
+    
+    def augment(self, aug_modality_list: list, input_vec: torch.Tensor, modality: str, y: torch.Tensor, repeat_idx: list = []):
+        aug_dict = next((item for item in aug_modality_list if item["name"] == modality), {})
+        aug = self.run_augmentations(x=input_vec, y=y, augment_dict=aug_dict, repeat_idx=repeat_idx)
+        self.aug_summarizer.register_rate(A=input_vec, B=aug, modality=modality)
+        return aug
 
+    def add_common_idx(self, y: torch.Tensor, aug_modality_list: list, image_t: torch.Tensor, table_t: torch.Tensor, shared_t: torch.Tensor):
+        for mod in aug_modality_list:
+            for m in mod["method"]:
+                OmegaConf.set_struct(m, False)
+                assert image_t.size(0) == table_t.size(0) == shared_t.size(0), "Tensors have different batch sizes"
+                batch_size = shared_t.size(0)
+                if m["name"] in ("noise", "mixstyle"):
+                    m["idx"] = latentAug.get_random_idx(batch_size=batch_size, rate=m["rate"], seed=m["seed"])
+                elif m["name"] == "linear_delta":
+                    m["idx"] = latentAug.get_idx_triples(batch_size=batch_size, y=y, sample_randomly=m["sample_randomly"], seed=m["seed"], rate=m["rate"])
+                elif m["name"] == "extrapolation":
+                    m["idx"] = latentAug.get_idx_pairs(x=shared_t, y=y, sample_randomly=m["sample_randomly"], seed=m["seed"], rate=m["rate"]) 
+        return aug_modality_list
 
 if __name__ == "__main__":
   args = DotDict({'model': 'resnet50', 'checkpoint': None, 'algorithm_name': 'DISCO',

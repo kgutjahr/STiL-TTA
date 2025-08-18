@@ -214,12 +214,24 @@ data_train_eval_tabular_unlabelled_short:
 labels_train_eval_tabular_unlabelled_short:
 
 latent_augmentation:
+  when: CGPL
   modality:
-    #- name: multimodal
-    #  method:
-    #    - name: extrapolation
-    #      lambda_: 0.5
-    #      rate: 0.5
-    #      sample_randomly: False
-    #      seed: 2022
+    - name: image
+      method:
+        - name: mixstyle
+          alpha: 0.1
+          rate: 0.01
+          seed: 2022
+    - name: tabular
+      method:
+        - name: mixstyle
+          alpha: 0.1
+          rate: 0.01
+          seed: 2022
+    - name: multimodal
+      method:
+        - name: mixstyle
+          alpha: 0.1
+          rate: 0.01
+          seed: 2022
 
