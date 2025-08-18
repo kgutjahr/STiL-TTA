@@ -1,7 +1,6 @@
 import torch
 import random
 from itertools import permutations, combinations
-from AugmentSummarizer import AugmentSummarizer
 
 def get_same_class_points(y: torch.Tensor) -> dict:
     index_map = {}
@@ -71,7 +70,7 @@ def get_idx_triples(batch_size: int, y: torch.Tensor, sample_randomly: bool, see
         filtered_cand = [c for c in candidates if len(c) > 2]
         triple_list.extend([tuple(p) for inner in filtered_cand for p in permutations(inner, 3)])
     else:
-        gen = torch.Generator(device=x.device).manual_seed(seed)
+        gen = torch.Generator().manual_seed(seed)
         x_len = torch.tensor(list(range(0, batch_size)))
         shuffled = x_len[torch.randperm(batch_size, generator=gen)].tolist()
         triple_list = list(combinations(shuffled, 3))
@@ -87,7 +86,7 @@ def get_idx_triples(batch_size: int, y: torch.Tensor, sample_randomly: bool, see
     return rng.sample(kept_triples, num_to_keep)
 
 def get_random_idx(batch_size: int, rate: float, seed: int):
-    gen = torch.Generator(device=x.device).manual_seed(seed)
+    gen = torch.Generator().manual_seed(seed)
     num_selected = int(batch_size * rate)
     return torch.randperm(batch_size, generator=gen)[:num_selected].tolist()
 
@@ -195,6 +194,7 @@ def linear_delta(x: torch.Tensor, y: torch.Tensor, sample_randomly: bool, rate: 
     return z
 
 if __name__ == "__main__":
+    from AugmentSummarizer import AugmentSummarizer
     x = torch.rand([20, 4])
     a = torch.rand([20, 4])
     b = torch.rand([20, 4])
