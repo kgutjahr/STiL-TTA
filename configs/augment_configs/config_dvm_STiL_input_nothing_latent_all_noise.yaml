@@ -223,4 +223,18 @@ latent_augmentation:
           min_range: -1.0
           max_range: 1.0
           seed: 2022
+    - name: tabular
+      method: 
+        - name: noise
+          rate: 0.5
+          min_range: -1.0
+          max_range: 1.0
+          seed: 2022
+    - name: multimodal
+      method: 
+        - name: noise
+          rate: 0.5
+          min_range: -1.0
+          max_range: 1.0
+          seed: 2022
         

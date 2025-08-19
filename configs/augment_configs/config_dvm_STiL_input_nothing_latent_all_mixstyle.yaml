@@ -218,9 +218,20 @@ latent_augmentation:
   modality:
     - name: image
       method: 
-        - name: noise
+        - name: mixstyle
           rate: 0.5
-          min_range: -1.0
-          max_range: 1.0
+          alpha: 0.1
+          seed: 2022
+    - name: tabular
+      method: 
+        - name: mixstyle
+          rate: 0.5
+          alpha: 0.1
+          seed: 2022
+    - name: multimodal
+      method: 
+        - name: mixstyle
+          rate: 0.5
+          alpha: 0.1
           seed: 2022
         

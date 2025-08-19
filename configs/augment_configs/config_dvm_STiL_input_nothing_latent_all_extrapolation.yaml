@@ -218,9 +218,22 @@ latent_augmentation:
   modality:
     - name: image
       method: 
-        - name: noise
+        - name: extrapolation
           rate: 0.5
-          min_range: -1.0
-          max_range: 1.0
+          lambda_: 0.5
+          sample_randomly: False
           seed: 2022
-        
+    - name: tabular
+      method: 
+        - name: extrapolation
+          rate: 0.5
+          lambda_: 0.5
+          sample_randomly: False
+          seed: 2022
+    - name: multimodal
+      method: 
+        - name: extrapolation
+          rate: 0.5
+          lambda_: 0.5
+          sample_randomly: False
+          seed: 2022
