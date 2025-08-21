@@ -39,7 +39,7 @@ run_experiment DATASETS1[@] MODALITIES1[@] AUGS1[@] "EXP1"
 
 
 # Experiment 2
-DATASETS2=("all")
-MODALITIES2=("tabular" "image" "multi")
+DATASETS2=("black" "miles" "normal")
+MODALITIES2=("all")
 AUGS2=("delta" "extrapolation" "mixstyle" "noise")
 run_experiment DATASETS2[@] MODALITIES2[@] AUGS2[@] "EXP2"
