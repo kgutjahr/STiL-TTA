@@ -57,7 +57,6 @@ def get_idx_pairs(x: torch.Tensor, y: torch.Tensor, sample_randomly: bool, seed:
     pair_list = sample_unique_first(data=pair_list, seed=seed)
     # only extrapolate certain amount of pairs
     num_to_keep = int(len(pair_list) * rate)
-    num_to_keep = max(num_to_keep, 1)
 
     # Randomly select sample of the pairs
     return rng.sample(pair_list, num_to_keep)
@@ -79,7 +78,6 @@ def get_idx_triples(batch_size: int, y: torch.Tensor, sample_randomly: bool, see
     
     # only extrapolate certain amount of pairs
     num_to_keep = int(len(kept_triples) * rate)
-    num_to_keep = max(num_to_keep, 1)
 
     # Randomly select sample of the pairs
     rng = random.Random(seed)
@@ -133,7 +131,7 @@ def mixstyle(x: torch.Tensor, rate: float, alpha: float, seed: int, idx = None) 
     if rate == 0.0:
         return x
 
-    gen = torch.Generator(device=x.device).manual_seed(seed)
+    gen = torch.Generator().manual_seed(seed)
     rng = random.Random(seed)
     
     x_prime = x[torch.randperm(x.size()[0], generator=gen)]
