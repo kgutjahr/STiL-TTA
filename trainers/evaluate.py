@@ -163,6 +163,9 @@ def evaluate(hparams, wandb_logger):
     elif hparams.algorithm_name == 'CoTrain_Pseudo_SAINT':
         from models.SemiMultimodal.CoTraining_SAINT import CoTraining
         model = CoTraining(hparams)
+    elif hparams.algorithm_name == 'TIP':
+        from models.TIP.TipModel3Loss import TIP3Loss
+        model = TIP3Loss(hparams)
     else:
         print('Algorithm name not found')
   
