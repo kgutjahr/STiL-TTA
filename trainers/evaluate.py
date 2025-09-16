@@ -98,8 +98,11 @@ def load_datasets_separate(hparams):
     l_N, u_N = len(labelled_dataset), len(unlabelled_dataset)
     # As number of labelled and unlabelled data are different, calculate the repeat time for labelled data. This will be used for prototype calculation
     hparams.repeat_ratio = max(u_N//(hparams.unlabelled_ratio*l_N)-1, 1)
-    l_batch_size = hparams.batch_size//(1+hparams.unlabelled_ratio)
-    u_batch_size = hparams.batch_size - l_batch_size
+    if hasattr(hparams, "unlabelled_batch_ratio") and hparams.unlabelled_batch_ratio == 0.0:
+        l_batch_size = hparams.batch_size - 1
+    else:
+        l_batch_size = hparams.batch_size//(1+hparams.unlabelled_ratio)
+    u_batch_size = min(1, hparams.batch_size - l_batch_size)
     l_loader = DataLoader(
         labelled_dataset, num_workers=hparams.num_workers, batch_size=l_batch_size, pin_memory=True, shuffle=True, persistent_workers=True)
     u_loader = DataLoader(unlabelled_dataset, num_workers=hparams.num_workers, batch_size=u_batch_size, pin_memory=True, shuffle=True, persistent_workers=True)
