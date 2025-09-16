@@ -180,4 +180,3 @@ class TIP3Loss(Pretraining):
             "lr_scheduler": scheduler
         }
         )
-    

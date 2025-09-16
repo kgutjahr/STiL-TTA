@@ -16,6 +16,7 @@ from datasets.StrongWeakImageDataset import StrongWeakImageDataset
 from datasets.TabularDataset import TabularDataset
 from datasets.ImagingAndTabularDataset import ImagingAndTabularDataset
 from datasets.ContrastiveImagingAndTabularDataset import ContrastiveImagingAndTabularDataset
+from datasets.ImagingAndTabularDatasetMissing import ImagingAndTabularDatasetMissing
 from datasets.StrongWeakImagingAndTabularDataset import StrongWeakImagingAndTabularDataset
 from utils.utils import grab_arg_from_checkpoint, grab_image_augmentations, grab_hard_eval_image_augmentations, grab_wids, create_logdir
 
@@ -36,12 +37,28 @@ def load_datasets(hparams):
     elif hparams.eval_datatype in set(['imaging_and_tabular', 'multimodal']):
         transform = grab_image_augmentations(hparams.img_size, hparams.target, hparams.augmentation_speedup)
         hparams.transform = transform.__repr__()
-        train_dataset = ImagingAndTabularDataset(
-                    hparams.data_train_eval_imaging, hparams.delete_segmentation, hparams.augmentation_rate, hparams.data_train_eval_tabular, hparams.field_lengths_tabular, hparams.eval_one_hot,
-                    hparams.labels_train_eval_imaging, hparams.img_size, hparams.live_loading, train=True, target=hparams.target, corruption_rate=hparams.corruption_rate, augmentation_speedup=hparams.augmentation_speedup,)
-        val_dataset = ImagingAndTabularDataset(
-                    hparams.data_val_eval_imaging, hparams.delete_segmentation, hparams.augmentation_rate, hparams.data_val_eval_tabular, hparams.field_lengths_tabular, hparams.eval_one_hot,
-                    hparams.labels_val_eval_imaging, hparams.img_size, hparams.live_loading, train=False, target=hparams.target, corruption_rate=hparams.corruption_rate, augmentation_speedup=hparams.augmentation_speedup,)
+        if hparams.algorithm_name == "tip":
+            train_dataset = ImagingAndTabularDatasetMissing(
+              hparams.data_train_eval_imaging, hparams.delete_segmentation, hparams.eval_train_augment_rate, 
+              hparams.data_train_eval_tabular, hparams.field_lengths_tabular, hparams.eval_one_hot,
+              hparams.labels_train_eval_imaging, grab_arg_from_checkpoint(hparams, 'img_size'), hparams.live_loading, train=True, target=hparams.target, corruption_rate=hparams.corruption_rate,
+              data_base=hparams.data_base, missing_tabular=hparams.missing_tabular, missing_strategy=hparams.missing_strategy, missing_rate=hparams.missing_rate, 
+              augmentation_speedup=hparams.augmentation_speedup,algorithm_name=hparams.algorithm_name
+            )
+            val_dataset = ImagingAndTabularDatasetMissing(
+              hparams.data_val_eval_imaging, hparams.delete_segmentation, hparams.eval_train_augment_rate, 
+              hparams.data_val_eval_tabular, hparams.field_lengths_tabular, hparams.eval_one_hot,
+              hparams.labels_val_eval_imaging, grab_arg_from_checkpoint(hparams, 'img_size'), hparams.live_loading, train=False, target=hparams.target, corruption_rate=hparams.corruption_rate,
+              data_base=hparams.data_base, missing_tabular=hparams.missing_tabular, missing_strategy=hparams.missing_strategy, missing_rate=hparams.missing_rate,
+              augmentation_speedup=hparams.augmentation_speedup,algorithm_name=hparams.algorithm_name
+            )
+        else:
+            train_dataset = ImagingAndTabularDataset(
+                        hparams.data_train_eval_imaging, hparams.delete_segmentation, hparams.augmentation_rate, hparams.data_train_eval_tabular, hparams.field_lengths_tabular, hparams.eval_one_hot,
+                        hparams.labels_train_eval_imaging, hparams.img_size, hparams.live_loading, train=True, target=hparams.target, corruption_rate=hparams.corruption_rate, augmentation_speedup=hparams.augmentation_speedup,)
+            val_dataset = ImagingAndTabularDataset(
+                        hparams.data_val_eval_imaging, hparams.delete_segmentation, hparams.augmentation_rate, hparams.data_val_eval_tabular, hparams.field_lengths_tabular, hparams.eval_one_hot,
+                        hparams.labels_val_eval_imaging, hparams.img_size, hparams.live_loading, train=False, target=hparams.target, corruption_rate=hparams.corruption_rate, augmentation_speedup=hparams.augmentation_speedup,)
         hparams.input_size = train_dataset.get_input_size()
     else:
         raise Exception('argument dataset must be set to imaging, tabular, multimodal or imaging_and_tabular')
@@ -103,6 +120,16 @@ def evaluate(hparams, wandb_logger):
     trainer_accelerator = "gpu" if cuda_visible_devices else "cpu"
     cuda_visible_devices = int(cuda_visible_devices) if cuda_visible_devices else None
     
+    if hparams.missing_tabular == True and hparams.missing_strategy != 'value':
+        check_list = []
+        for data_path in [hparams.data_train_eval_tabular, hparams.data_val_eval_tabular, hparams.data_test_eval_tabular]:
+          tabular_name = data_path.split('/')[-1].split('.')[0]
+          missing_mask_path = join(hparams.data_base, 'missing_mask', f'{tabular_name}_{hparams.target}_{hparams.missing_strategy}_{hparams.missing_rate}.npy')
+          missing_mask = np.load(missing_mask_path)
+          check_list.append(missing_mask[0])
+        assert np.all(check_list[0] == check_list[1]) and np.all(check_list[0] == check_list[2]), 'Missing mask is not the same for train, val and test'
+        print(f'Num of missing: {np.sum(check_list[0])}, Current missing mask: {np.where(check_list[0])}')
+    
     train_dataset, val_dataset = load_datasets(hparams)
     
     drop = ((len(train_dataset)%hparams.batch_size)==1)
@@ -131,7 +158,7 @@ def evaluate(hparams, wandb_logger):
         num_workers=hparams.num_workers, batch_size=hparams.batch_size,
         pin_memory=True, shuffle=False, persistent_workers=True)
   
-  
+    print(f"Number of training batches: {len(train_loader)}")
     print(f"Number of validation batches: {len(val_loader)}")
     print(f'Valid batch size: {hparams.batch_size*cuda.device_count()}')
 
@@ -164,8 +191,8 @@ def evaluate(hparams, wandb_logger):
         from models.SemiMultimodal.CoTraining_SAINT import CoTraining
         model = CoTraining(hparams)
     elif hparams.algorithm_name == 'TIP':
-        from models.TIP.TipModel3Loss import TIP3Loss
-        model = TIP3Loss(hparams)
+        from models.TIP.Evaluator import Evaluator
+        model = Evaluator(hparams)
     else:
         print('Algorithm name not found')
   
@@ -192,10 +219,19 @@ def evaluate(hparams, wandb_logger):
                                         dataset_name=hparams.dataset_name, augmentation_speedup=hparams.augmentation_speedup)
             hparams.transform_test = test_dataset.transform_val.__repr__()
         elif hparams.eval_datatype in set(['multimodal', 'imaging_and_tabular']):
-            test_dataset = ImagingAndTabularDataset(
-                    hparams.data_test_eval_imaging, hparams.delete_segmentation, 0, hparams.data_test_eval_tabular, hparams.field_lengths_tabular, hparams.eval_one_hot,
-                    hparams.labels_test_eval_imaging, grab_arg_from_checkpoint(hparams, 'img_size'), hparams.live_loading, train=False, target=hparams.target, corruption_rate=0,
-                    augmentation_speedup=hparams.augmentation_speedup)
+            if hparams.algorithm_name == 'tip':
+                test_dataset = ImagingAndTabularDatasetMissing(
+                  hparams.data_test_eval_imaging, hparams.delete_segmentation, 0, 
+                  hparams.data_test_eval_tabular, hparams.field_lengths_tabular, hparams.eval_one_hot,
+                  hparams.labels_test_eval_imaging, grab_arg_from_checkpoint(hparams, 'img_size'), hparams.live_loading, train=False, target=hparams.target, corruption_rate=0,
+                  data_base=hparams.data_base, missing_tabular=hparams.missing_tabular, missing_strategy=hparams.missing_strategy, missing_rate=hparams.missing_rate,
+                  augmentation_speedup=hparams.augmentation_speedup,algorithm_name=hparams.algorithm_name
+                )
+            else:
+                test_dataset = ImagingAndTabularDataset(
+                        hparams.data_test_eval_imaging, hparams.delete_segmentation, 0, hparams.data_test_eval_tabular, hparams.field_lengths_tabular, hparams.eval_one_hot,
+                        hparams.labels_test_eval_imaging, grab_arg_from_checkpoint(hparams, 'img_size'), hparams.live_loading, train=False, target=hparams.target, corruption_rate=0,
+                        augmentation_speedup=hparams.augmentation_speedup)
             hparams.input_size = test_dataset.get_input_size()
         elif hparams.eval_datatype == 'tabular':
             test_dataset = TabularDataset(hparams.data_test_eval_tabular, hparams.labels_test_eval_tabular, 0, 0, train=False, 

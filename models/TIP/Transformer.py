@@ -199,7 +199,7 @@ class TabularTransformerEncoder(nn.Module):
 
         self.num_cat = len(cat_lengths_tabular)
         self.num_con = len(con_lengths_tabular)
-        self.num_unique_cat= sum(cat_lengths_tabular)
+        self.num_unique_cat= int(sum(cat_lengths_tabular))
         print('TabularTransformerEncoder uses Mask Attention')
         # print('TabularTransformerEncoder No Mask Attention')
 

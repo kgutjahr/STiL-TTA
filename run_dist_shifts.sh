@@ -36,6 +36,6 @@ run_experiment () {
 
 # Experiment 2
 DATASETS2=("color_miles")
-MODALITIES2=("both", "image_only", "nothing", "tabular_only")
+MODALITIES2=("both" "image_only" "nothing")
 AUGS2=("delta" "extrapolation" "mixstyle" "noise")
 run_experiment DATASETS2[@] MODALITIES2[@] AUGS2[@] "EXP2"

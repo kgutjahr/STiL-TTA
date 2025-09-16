@@ -17,6 +17,7 @@ import wandb
 
 from trainers.evaluate import evaluate
 from trainers.test import test
+from trainers.pretrain import pretrain
 from utils.utils import grab_arg_from_checkpoint, prepend_paths, re_prepend_paths
 
 torch.multiprocessing.set_sharing_strategy('file_system')
@@ -86,6 +87,15 @@ def run(args: DictConfig):
   print('Comment: ', args.comment)
   print(f'Pretrain LR: {args.lr}, Decay: {args.weight_decay}')
   print(f'Finetune LR: {args.lr_eval}, Decay: {args.weight_decay_eval}')
+  
+  if args.pretrain:
+    print('=================================================================================\n')
+    print('Start pretraining\n')  
+    print(f'Target is {args.target}')
+    print('=================================================================================')
+    torch.cuda.empty_cache()
+    pretrain(args, wandb_logger)
+    args.checkpoint = os.path.join(save_dir, 'runs', args.datatype, wandb_logger.experiment.name, f'checkpoint_last_epoch_{args.max_epochs-1:02}.ckpt')
 
   if args.test:
     test(args, wandb_logger)
