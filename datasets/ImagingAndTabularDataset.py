@@ -91,7 +91,7 @@ class ImagingAndTabularDataset(Dataset):
     self.generate_marginal_distributions()
     self.field_lengths_tabular = np.array(torch.load(field_lengths_tabular))
     self.eval_one_hot = eval_one_hot
-    self.c = corruption_rate if corruption_rate else None
+    self.c = corruption_rate if corruption_rate else 0.0
 
     # Classifier
     self.labels = torch.load(labels_path)

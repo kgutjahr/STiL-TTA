@@ -106,6 +106,12 @@ encoder_num_layers: 2
 projector_num_layers: 1
 init_strat: kaiming
 
+# TTA
+num_TTA_augmentations: 10
+test_augmentation_rate: 0.95
+test_corruption_rate: 0.3
+
+
 # Evaluator
 generate_embeddings: False
 keep_projector: False

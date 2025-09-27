@@ -193,7 +193,7 @@ def evaluate(hparams, wandb_logger):
     elif hparams.algorithm_name == 'CoTrain_Pseudo_SAINT':
         from models.SemiMultimodal.CoTraining_SAINT import CoTraining
         model = CoTraining(hparams)
-    elif hparams.algorithm_name == 'TIP':
+    elif hparams.algorithm_name == 'tip':
         from models.TIP.Evaluator import Evaluator
         model = Evaluator(hparams)
     else:
