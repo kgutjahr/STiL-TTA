@@ -39,14 +39,14 @@ def load_datasets(hparams):
         hparams.transform = transform.__repr__()
         if hparams.algorithm_name == "tip":
             train_dataset = ImagingAndTabularDatasetMissing(
-              hparams.data_train_eval_imaging, hparams.delete_segmentation, hparams.eval_train_augment_rate, 
+              hparams.data_train_eval_imaging, hparams.delete_segmentation, hparams.augmentation_rate, 
               hparams.data_train_eval_tabular, hparams.field_lengths_tabular, hparams.eval_one_hot,
               hparams.labels_train_eval_imaging, grab_arg_from_checkpoint(hparams, 'img_size'), hparams.live_loading, train=True, target=hparams.target, corruption_rate=hparams.corruption_rate,
               data_base=hparams.data_base, missing_tabular=hparams.missing_tabular, missing_strategy=hparams.missing_strategy, missing_rate=hparams.missing_rate, 
               augmentation_speedup=hparams.augmentation_speedup,algorithm_name=hparams.algorithm_name
             )
             val_dataset = ImagingAndTabularDatasetMissing(
-              hparams.data_val_eval_imaging, hparams.delete_segmentation, hparams.eval_train_augment_rate, 
+              hparams.data_val_eval_imaging, hparams.delete_segmentation, hparams.augmentation_rate, 
               hparams.data_val_eval_tabular, hparams.field_lengths_tabular, hparams.eval_one_hot,
               hparams.labels_val_eval_imaging, grab_arg_from_checkpoint(hparams, 'img_size'), hparams.live_loading, train=False, target=hparams.target, corruption_rate=hparams.corruption_rate,
               data_base=hparams.data_base, missing_tabular=hparams.missing_tabular, missing_strategy=hparams.missing_strategy, missing_rate=hparams.missing_rate,

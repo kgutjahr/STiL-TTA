@@ -11,7 +11,7 @@ run_experiment () {
   for ds in "${DATASETS[@]}"; do
     for mod in "${MODALITIES[@]}"; do
       CONFIG="config_dvm_TIP_input_${mod}"
-      EXP="latent_augmentation_results/input_only/TIP_${ds}_${mod}"
+      EXP="latent_augmentation_results/input_only/TIP_100_${ds}_${mod}"
       LOG="error_logs/TIP_${ds}_${mod}.log"
       #
       echo ">>> Running $TAG: dataset=$ds, modality=$mod"
@@ -36,5 +36,5 @@ run_experiment () {
 
 # Experiment 2
 DATASETS2=("black" "miles" "normal" "color_miles")
-MODALITIES2=("both" "image_only" "tabular_only" "nothing")
+MODALITIES2=("image_only")
 run_experiment DATASETS2[@] MODALITIES2[@] "TIP"
