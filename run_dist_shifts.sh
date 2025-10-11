@@ -10,8 +10,8 @@ run_experiment () {
 
   for ds in "${DATASETS[@]}"; do
     for mod in "${MODALITIES[@]}"; do
-      CONFIG="config_dvm_TIP_input_${mod}"
-      EXP="latent_augmentation_results/input_only/TIP_100_${ds}_${mod}"
+      CONFIG="config_dvm_STiL_consent"
+      EXP="latent_augmentation_results/input_only/STiL_all_labelled_${ds}_${mod}"
       LOG="error_logs/TIP_${ds}_${mod}.log"
       #
       echo ">>> Running $TAG: dataset=$ds, modality=$mod"
@@ -27,14 +27,8 @@ run_experiment () {
   done
 }
 #
-## Experiment 1
-#DATASETS1=("black" "miles" "normal")
-#MODALITIES1=("image")
-#AUGS1=("noise")
-#run_experiment DATASETS1[@] MODALITIES1[@] AUGS1[@] "EXP1"
 
-
-# Experiment 2
+# Experiment
 DATASETS2=("black" "miles" "normal" "color_miles")
-MODALITIES2=("image_only")
-run_experiment DATASETS2[@] MODALITIES2[@] "TIP"
+MODALITIES2=("")
+run_experiment DATASETS2[@] MODALITIES2[@] "STiL-all-labelled"

@@ -196,6 +196,9 @@ def evaluate(hparams, wandb_logger):
     elif hparams.algorithm_name == 'tip':
         from models.TIP.Evaluator import Evaluator
         model = Evaluator(hparams)
+    elif hparams.algorithm_name == "STiL_train_consent":
+        from models.Disentangle.STiLModel_train_consent import STiLModel_Consent
+        model = STiLModel_Consent(hparams)
     else:
         print('Algorithm name not found')
   
