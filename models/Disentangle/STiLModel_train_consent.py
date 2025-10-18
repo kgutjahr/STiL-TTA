@@ -44,6 +44,7 @@ class STiLModel_Consent(pl.LightningModule):
         self.alpha = self.hparams.alpha
         self.beta = self.hparams.beta
         self.gamma = self.hparams.gamma
+        self.epsilon = self.hparams.epsilon
         self.rate_uce = self.hparams.rate_uce
         self.th1 = self.hparams.th1
         self.th2 = self.hparams.th2
@@ -109,6 +110,12 @@ class STiLModel_Consent(pl.LightningModule):
         print(f'ITC imaging head: {self.projector_imaging}')
         print(f'ITC tabular head: {self.projector_tabular}')
         print(f'ITC multimodal head: {self.projector_multimodal}')
+        
+        self.w_m = nn.Parameter(torch.tensor(1.0 / 3))
+        self.w_i = nn.Parameter(torch.tensor(1.0 / 3))
+        self.w_t = nn.Parameter(torch.tensor(1.0 / 3))
+        
+        self.train_logit_consent = self.hparams.train_logit_consent
 
     def load_weights(self, module, module_name, state_dict):
         state_dict_module = {}
@@ -141,6 +148,11 @@ class STiLModel_Consent(pl.LightningModule):
         self.auc_val_imaging = torchmetrics.AUROC(task=task, num_classes=self.hparams.num_classes)
         self.auc_val_tabular = torchmetrics.AUROC(task=task, num_classes=self.hparams.num_classes)
         self.auc_test = torchmetrics.AUROC(task=task, num_classes=self.hparams.num_classes)
+        
+        self.acc_classifier_multi = torchmetrics.Accuracy(task=task, num_classes=self.hparams.num_classes)
+        self.acc_classifier_image = torchmetrics.Accuracy(task=task, num_classes=self.hparams.num_classes)
+        self.acc_classifier_tabular = torchmetrics.Accuracy(task=task, num_classes=self.hparams.num_classes)
+        
         # self.auc_train_pseudo_prototypes = torchmetrics.AUROC(task=task, num_classes=self.hparams.num_classes)
 
         # self.acc_train_labelled_prototypes = torchmetrics.Accuracy(task=task, num_classes=self.hparams.num_classes)
@@ -250,18 +262,42 @@ class STiLModel_Consent(pl.LightningModule):
         #    # case identification. case1: all the same, case2: two the same, case3: else
             prob_m_e, prob_i_e, prob_t_e = torch.softmax(y_hat_m_e.detach(), dim=1), torch.softmax(y_hat_i_e.detach(), dim=1), torch.softmax(y_hat_t_e.detach(), dim=1)
             top1_m, top1_i, top1_t = torch.argmax(prob_m_e, dim=1), torch.argmax(prob_i_e, dim=1), torch.argmax(prob_t_e, dim=1)
-            case1 = ((top1_m == top1_i) & (top1_m == top1_t))
-            case2_i = ((top1_m == top1_i) & (top1_m != top1_t))
-            case2_t = (top1_m == top1_t) & (top1_m != top1_i)
-            case3 = ~(case1 | case2_i | case2_t)
-            assert ((case1.float()+case2_i.float()+case2_t.float()+case3.float()) == torch.ones_like(case1, device=case1.device).float()).all()
-            # pseudo label for different cases
-            case1_label = self.sharpen_predictions((y_hat_m_e + y_hat_i_e + y_hat_t_e)/3.0, 1.0)
-            case2_i_label = self.sharpen_predictions((y_hat_m_e + y_hat_i_e)/2.0, 1.0)
-            case2_t_label = self.sharpen_predictions((y_hat_m_e + y_hat_t_e)/2.0, 1.0)
-            case3_label = self.sharpen_predictions(y_hat_m_e, 1.0)
-            pseudo_label_orig = case1[:,None]*case1_label + case2_i[:,None]*case2_i_label + case2_t[:,None]*case2_t_label + case3[:,None]*case3_label
-
+            
+            self.acc_classifier_multi(top1_m, y)
+            self.acc_classifier_image(top1_i, y)
+            self.acc_classifier_tabular(top1_t, y)
+            
+            entropy_m = -torch.sum(prob_m_e * torch.log(prob_m_e), dim=1)
+            entropy_i = -torch.sum(prob_i_e * torch.log(prob_i_e), dim=1)
+            entropy_t = -torch.sum(prob_t_e * torch.log(prob_t_e), dim=1)
+            
+            self.log(f'multimodal.classifier.entropy', entropy_m, on_epoch=True, on_step=False, batch_size=B_l)
+            self.log(f'image.classifier.entropy', entropy_i, on_epoch=True, on_step=False, batch_size=B_l)
+            self.log(f'tabular.classifier.entropy', entropy_t, on_epoch=True, on_step=False, batch_size=B_l) 
+            
+            with torch.no_grad():
+                
+                case1 = ((top1_m == top1_i) & (top1_m == top1_t))
+                case2_i = ((top1_m == top1_i) & (top1_m != top1_t))
+                case2_t = (top1_m == top1_t) & (top1_m != top1_i)
+                case3 = ~(case1 | case2_i | case2_t)
+                assert ((case1.float()+case2_i.float()+case2_t.float()+case3.float()) == torch.ones_like(case1, device=case1.device).float()).all()
+                
+                self.log(f'multimodal.train.case1_ratio', torch.sum(case1)/len(case1), on_epoch=True, on_step=False, batch_size=B_l)
+                self.log(f'multimodal.train.case2_i_ratio', torch.sum(case2_i)/len(case2_i), on_epoch=True, on_step=False, batch_size=B_l)
+                self.log(f'multimodal.train.case2_t_ratio', torch.sum(case2_t)/len(case2_t), on_epoch=True, on_step=False, batch_size=B_l)
+                self.log(f'multimodal.train.case3_ratio', torch.sum(case3)/len(case3), on_epoch=True, on_step=False, batch_size=B_l)         
+            
+            
+            # Weighted combination of logits
+            if self.train_logit_consent:
+                w = F.softmax(torch.stack([self.w_m, self.w_i, self.w_t]), dim=0)
+                p_prime = w[0] * y_hat_m + w[1] * y_hat_i + w[2] * y_hat_t
+                # Cross-entropy loss with ground truth labels
+                loss_p_prime = self.criterion_ce(p_prime, y)
+                self.log(f"multimodal.train.p_prime_loss", loss_p_prime, on_epoch=True, on_step=False, batch_size=B_l)
+            else:
+                loss_p_prime = 0.0
             
         # =============================  classification ======================================
         # student labelled CE loss
@@ -291,7 +327,7 @@ class STiLModel_Consent(pl.LightningModule):
         self.log(f"multimodal.train.CLUBloss_tabular", loss_club_t, on_epoch=True, on_step=False, batch_size=B_l)
         self.log(f"multimodal.train.CLUBloss_tabular_est", loss_club_t_est, on_epoch=True, on_step=False, batch_size=B_l)
 
-        loss = self.alpha*loss_ce + self.beta*loss_itc + self.gamma*(loss_clubi + loss_club_i_est + loss_club_t + loss_club_t_est)
+        loss = self.alpha*loss_ce + self.beta*loss_itc + self.gamma*(loss_clubi + loss_club_i_est + loss_club_t + loss_club_t_est) + self.epsilon*loss_p_prime
         self.log(f"multimodal.train.loss", loss, on_epoch=True, on_step=False, batch_size=B_l)
             
         self.acc_train(prob_m_l, y)
@@ -320,6 +356,9 @@ class STiLModel_Consent(pl.LightningModule):
         
         self.log('eval.train.acc', self.acc_train, on_epoch=True, on_step=False, metric_attribute=self.acc_train)
         self.log('eval.train.auc', self.auc_train, on_epoch=True, on_step=False, metric_attribute=self.auc_train)
+        self.log('classifier.multi.acc', self.acc_classifier_multi, on_epoch=True, on_step=False, metric_attribute=self.acc_classifier_multi)
+        self.log('classifier.image.acc', self.acc_classifier_image, on_epoch=True, on_step=False, metric_attribute=self.acc_classifier_image)
+        self.log('classifier.tab.acc', self.acc_classifier_tabular, on_epoch=True, on_step=False, metric_attribute=self.acc_classifier_tabular)
         # self.log('eval.train.l_prot_acc', self.acc_train_labelled_prototypes, on_epoch=True, on_step=False, metric_attribute=self.acc_train_labelled_prototypes)
         # self.log('eval.train.u_prot_acc', self.acc_train_unlabelled_prototypes, on_epoch=True, on_step=False, metric_attribute=self.acc_train_unlabelled_prototypes)
         # if self.use_pseudo:
@@ -438,7 +477,21 @@ class STiLModel_Consent(pl.LightningModule):
         #if self.hparams.tta:
         #    # TODO: Implement TTA here
         
-        y_hat, _, _, _, _, _, _, _ = self.model.forward(x)
+        y_hat, y_hat_i, y_hat_t, _, _, _, _, _ = self.model.forward(x)
+        #print(y_hat)
+        #
+        #with torch.no_grad():
+        #    corr_matrix_m = torch.corrcoef(torch.stack((top1_m, y)))
+        #    correlation_m = corr_matrix_m[0, 1]
+        #    self.log(f"classifier.multimodal.logits.correlation", correlation_m, on_epoch=True, on_step=False, batch_size=B_l)
+        #    #
+        #    corr_matrix_i = torch.corrcoef(torch.stack((top1_i, y)))
+        #    correlation_i = corr_matrix_i[0, 1]
+        #    self.log(f"classifier.image.logits.correlation", correlation_i, on_epoch=True, on_step=False, batch_size=B_l)
+        #    #
+        #    corr_matrix_t = torch.corrcoef(torch.stack((top1_t, y)))
+        #    correlation_t = corr_matrix_t[0, 1]
+        #    self.log(f"classifier.tabular.logits.correlation", correlation_t, on_epoch=True, on_step=False, batch_size=B_l)            
 
         y_hat = torch.softmax(y_hat.detach(), dim=1)
         if self.hparams.num_classes==2:

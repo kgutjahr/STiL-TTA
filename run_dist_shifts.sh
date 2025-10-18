@@ -12,8 +12,8 @@ run_experiment () {
   for ds in "${DATASETS[@]}"; do
     for mod in "${MODALITIES[@]}"; do
       CONFIG="config_dvm_STiL_consent"
-      EXP="latent_augmentation_results/input_only/STiL_all_labelled_${ds}_${mod}"
-      LOG="error_logs/TIP_${ds}_${mod}.log"
+      EXP="latent_augmentation_results/input_only/STiL_all_labelled_${ds}"
+      LOG="error_logs/STiL_all_labelled_${ds}.log"
       #
       echo ">>> Running $TAG: dataset=$ds, modality=$mod"
       CUDA_VISIBLE_DEVICES=1 python -u run.py \

@@ -141,6 +141,10 @@ class STiLModel(pl.LightningModule):
         self.acc_val_imaging = torchmetrics.Accuracy(task=task, num_classes=self.hparams.num_classes)
         self.acc_val_tabular = torchmetrics.Accuracy(task=task, num_classes=self.hparams.num_classes)
         self.acc_test = torchmetrics.Accuracy(task=task, num_classes=self.hparams.num_classes)
+        
+        self.acc_classifier_multi = torchmetrics.Accuracy(task=task, num_classes=self.hparams.num_classes)
+        self.acc_classifier_image = torchmetrics.Accuracy(task=task, num_classes=self.hparams.num_classes)
+        self.acc_classifier_tabular = torchmetrics.Accuracy(task=task, num_classes=self.hparams.num_classes)
 
         self.auc_train = torchmetrics.AUROC(task=task, num_classes=self.hparams.num_classes)
         self.auc_train_unlabelled = torchmetrics.AUROC(task=task, num_classes=self.hparams.num_classes)
@@ -269,6 +273,24 @@ class STiLModel(pl.LightningModule):
             case2_i = ((top1_m == top1_i) & (top1_m != top1_t))
             case2_t = (top1_m == top1_t) & (top1_m != top1_i)
             case3 = ~(case1 | case2_i | case2_t)
+            
+            self.acc_classifier_multi(prob_m_ue, y_u)
+            self.acc_classifier_image(prob_i_ue, y_u)
+            self.acc_classifier_tabular(prob_t_ue, y_u)
+            
+            with torch.no_grad():
+                corr_matrix_m = torch.corrcoef(torch.stack((top1_m, y_u)))
+                correlation_m = corr_matrix_m[0, 1]
+                self.log(f"classifier.multimodal.logits.correlation", correlation_m, on_epoch=True, on_step=False, batch_size=B_l)
+
+                corr_matrix_i = torch.corrcoef(torch.stack((top1_i, y_u)))
+                correlation_i = corr_matrix_i[0, 1]
+                self.log(f"classifier.image.logits.correlation", correlation_i, on_epoch=True, on_step=False, batch_size=B_l)
+
+                corr_matrix_t = torch.corrcoef(torch.stack((top1_t, y_u)))
+                correlation_t = corr_matrix_t[0, 1]
+                self.log(f"classifier.tabular.logits.correlation", correlation_t, on_epoch=True, on_step=False, batch_size=B_l)
+            
             assert ((case1.float()+case2_i.float()+case2_t.float()+case3.float()) == torch.ones_like(case1, device=case1.device).float()).all()
             # pseudo label for different cases
             case1_pseudo_label = self.sharpen_predictions((y_hat_m_ue + y_hat_i_ue + y_hat_t_ue)/3.0, 1.0)
@@ -408,6 +430,10 @@ class STiLModel(pl.LightningModule):
         self.log('eval.train.teacher.latent.table.aug_rate', teacher_aug_sum["table_rate"], on_epoch=True, on_step=False)
         
         self.log('eval.train.acc', self.acc_train, on_epoch=True, on_step=False, metric_attribute=self.acc_train)
+        self.log('classifier.multi.acc', self.acc_classifier_multi, on_epoch=True, on_step=False, metric_attribute=self.acc_classifier_multi)
+        self.log('classifier.image.acc', self.acc_classifier_image, on_epoch=True, on_step=False, metric_attribute=self.acc_classifier_image)
+        self.log('classifier.tab.acc', self.acc_classifier_tabular, on_epoch=True, on_step=False, metric_attribute=self.acc_classifier_tabular)
+        
         self.log('eval.train.auc', self.auc_train, on_epoch=True, on_step=False, metric_attribute=self.auc_train)
         self.log('eval.train_unlabelled.acc', self.acc_train_unlabelled, on_epoch=True, on_step=False, metric_attribute=self.acc_train_unlabelled)
         self.log('eval.train_unlabelled.auc', self.auc_train_unlabelled, on_epoch=True, on_step=False, metric_attribute=self.auc_train_unlabelled)

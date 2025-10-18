@@ -100,9 +100,11 @@ def load_datasets_separate(hparams):
     hparams.repeat_ratio = max(u_N//(hparams.unlabelled_ratio*l_N)-1, 1)
     if hasattr(hparams, "unlabelled_batch_ratio") and hparams.unlabelled_batch_ratio == 0.0:
         l_batch_size = hparams.batch_size - 1
+        u_batch_size = 1
     else:
         l_batch_size = hparams.batch_size//(1+hparams.unlabelled_ratio)
-    u_batch_size = min(1, hparams.batch_size - l_batch_size)
+        u_batch_size = hparams.batch_size - l_batch_size
+
     l_loader = DataLoader(
         labelled_dataset, num_workers=hparams.num_workers, batch_size=l_batch_size, pin_memory=True, shuffle=True, persistent_workers=True)
     u_loader = DataLoader(unlabelled_dataset, num_workers=hparams.num_workers, batch_size=u_batch_size, pin_memory=True, shuffle=True, persistent_workers=True)

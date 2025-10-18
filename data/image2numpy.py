@@ -13,7 +13,7 @@ import matplotlib.pyplot as plt
 def process_DVM(
     DVM_feature_folder = '/mnt/data/kgutjahr/datasets/DVM/shifted_dists'): 
     for split in ['train', 'val', 'test']:
-        img_paths  = torch.load(os.path.join(DVM_feature_folder, 'image_paths_no_black_{}.pt'.format(split)))
+        img_paths  = torch.load(os.path.join(DVM_feature_folder, 'image_paths_{}.pt'.format(split)))
         np_paths = []
         for path in tqdm(img_paths):
             img_np = plt.imread(path)
@@ -27,4 +27,4 @@ def process_DVM(
             
 
 if __name__ == '__main__':
-    process_DVM('/mnt/data/kgutjahr/datasets/DVM/shifted_dists')
+    process_DVM('/mnt/data/kgutjahr/datasets/ADNI/ADNI1_Annual_2_Yr_3T/processed_data/normal')

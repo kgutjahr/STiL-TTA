@@ -42,6 +42,12 @@ def convert_to_ts_01(x, **kwargs):
   x = x.permute(2,0,1)
   return x
 
+def convert_to_ts_02(x, **kwargs):
+  x = torch.from_numpy(x).float()
+  x = x.unsqueeze(0)
+  x = x.repeat(3, 1, 1)
+  return x
+
 
 def grab_image_augmentations(img_size: int, target: str, augmentation_speedup: bool = False, crop_scale_lower: float = 0.08) -> transforms.Compose:
   """
@@ -162,6 +168,25 @@ def grab_hard_eval_image_augmentations(img_size: int, target: str, augmentation_
         transforms.Lambda(convert_to_float) 
       ])
     print('Using dvm transform for hard eval augmentation')
+  elif target.lower() == "adni":
+    if augmentation_speedup:
+      transform = A.Compose([
+                    A.HorizontalFlip(p=0.5),
+                    A.Rotate(limit=45),
+                    A.ColorJitter(brightness=0.5, contrast=0.5, saturation=0.5),
+                    A.RandomResizedCrop(height=img_size, width=img_size, scale=(0.6, 1.0)),
+                    A.Lambda(name='convert2tensor', image=convert_to_ts_02)
+                ])
+    else:
+      transform = transforms.Compose([
+        transforms.RandomHorizontalFlip(),
+        transforms.RandomRotation(45),
+        transforms.ColorJitter(brightness=0.5, contrast=0.5, saturation=0.5),
+        transforms.RandomResizedCrop(size=img_size, scale=(0.6,1)),
+        # transforms.Lambda(lambda x: x.float())
+        transforms.Lambda(convert_to_float)
+      ])
+    print('Using adni transform for hard eval augmentation')    
   else:
     if augmentation_speedup:
       transform = A.Compose([

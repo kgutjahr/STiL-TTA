@@ -32,6 +32,12 @@ def convert_to_ts_01(x, **kwargs):
   x = x.permute(2,0,1)
   return x
 
+def convert_to_ts_02(x, **kwargs):
+  x = torch.from_numpy(x).float()
+  x = x.unsqueeze(0)
+  x = x.repeat(3, 1, 1)
+  return x
+
 
 class ImagingAndTabularDataset(Dataset):
   """
@@ -78,6 +84,11 @@ class ImagingAndTabularDataset(Dataset):
           A.Lambda(name='convert2tensor', image=convert_to_ts_01)
         ])
         print('Using cardiac transform for default transform in ImagingAndTabularDataset')
+      elif self.target == "adni":
+        self.default_transform = A.Compose([
+          A.Resize(height=img_size, width=img_size),
+          A.Lambda(name='convert2tensor', image=convert_to_ts_02)
+        ])
       else:
         raise print('Only support dvm and cardiac datasets in ImagingAndTabularDataset')
     else:
