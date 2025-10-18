@@ -27,7 +27,7 @@ from utils.AugmentSummarizer import AugmentSummarizer
 from models.Disentangle.utils.club import CLUBMean
 
 
-class STiLModel(pl.LightningModule):
+class STiLModel_Consent(pl.LightningModule):
     def __init__(self, hparams):
         super().__init__()
         self.save_hyperparameters(hparams)
@@ -44,6 +44,7 @@ class STiLModel(pl.LightningModule):
         self.alpha = self.hparams.alpha
         self.beta = self.hparams.beta
         self.gamma = self.hparams.gamma
+        self.epsilon = self.hparams.epsilon
         self.rate_uce = self.hparams.rate_uce
         self.th1 = self.hparams.th1
         self.th2 = self.hparams.th2
@@ -94,10 +95,6 @@ class STiLModel(pl.LightningModule):
                 param_ema.data.copy_(param_model.data)
                 param_ema.requires_grad = False
 
-        # prototypes
-        self.register_buffer("prototypes", torch.zeros(self.hparams.num_classes, self.hparams.projection_dim))
-        self.register_buffer("prototypes_sum", torch.zeros(self.hparams.num_classes, self.hparams.projection_dim))
-        self.register_buffer("prototypes_count_sum", torch.zeros(self.hparams.num_classes, 1))
         self.logdir = self.hparams.logdir
         
         # distribution alignment
@@ -113,6 +110,12 @@ class STiLModel(pl.LightningModule):
         print(f'ITC imaging head: {self.projector_imaging}')
         print(f'ITC tabular head: {self.projector_tabular}')
         print(f'ITC multimodal head: {self.projector_multimodal}')
+        
+        self.w_m = nn.Parameter(torch.tensor(1.0 / 3))
+        self.w_i = nn.Parameter(torch.tensor(1.0 / 3))
+        self.w_t = nn.Parameter(torch.tensor(1.0 / 3))
+        
+        self.train_logit_consent = self.hparams.train_logit_consent
 
     def load_weights(self, module, module_name, state_dict):
         state_dict_module = {}
@@ -135,24 +138,21 @@ class STiLModel(pl.LightningModule):
         task = 'binary' if self.hparams.num_classes == 2 else 'multiclass'
         
         self.acc_train = torchmetrics.Accuracy(task=task, num_classes=self.hparams.num_classes)
-        self.acc_train_unlabelled = torchmetrics.Accuracy(task=task, num_classes=self.hparams.num_classes)
-        self.acc_train_pseudo = torchmetrics.Accuracy(task=task, num_classes=self.hparams.num_classes)
         self.acc_val = torchmetrics.Accuracy(task=task, num_classes=self.hparams.num_classes)
         self.acc_val_imaging = torchmetrics.Accuracy(task=task, num_classes=self.hparams.num_classes)
         self.acc_val_tabular = torchmetrics.Accuracy(task=task, num_classes=self.hparams.num_classes)
         self.acc_test = torchmetrics.Accuracy(task=task, num_classes=self.hparams.num_classes)
-        
-        self.acc_classifier_multi = torchmetrics.Accuracy(task=task, num_classes=self.hparams.num_classes)
-        self.acc_classifier_image = torchmetrics.Accuracy(task=task, num_classes=self.hparams.num_classes)
-        self.acc_classifier_tabular = torchmetrics.Accuracy(task=task, num_classes=self.hparams.num_classes)
 
         self.auc_train = torchmetrics.AUROC(task=task, num_classes=self.hparams.num_classes)
-        self.auc_train_unlabelled = torchmetrics.AUROC(task=task, num_classes=self.hparams.num_classes)
-        self.auc_train_pseudo = torchmetrics.AUROC(task=task, num_classes=self.hparams.num_classes)
         self.auc_val = torchmetrics.AUROC(task=task, num_classes=self.hparams.num_classes)
         self.auc_val_imaging = torchmetrics.AUROC(task=task, num_classes=self.hparams.num_classes)
         self.auc_val_tabular = torchmetrics.AUROC(task=task, num_classes=self.hparams.num_classes)
         self.auc_test = torchmetrics.AUROC(task=task, num_classes=self.hparams.num_classes)
+        
+        self.acc_classifier_multi = torchmetrics.Accuracy(task=task, num_classes=self.hparams.num_classes)
+        self.acc_classifier_image = torchmetrics.Accuracy(task=task, num_classes=self.hparams.num_classes)
+        self.acc_classifier_tabular = torchmetrics.Accuracy(task=task, num_classes=self.hparams.num_classes)
+        
         # self.auc_train_pseudo_prototypes = torchmetrics.AUROC(task=task, num_classes=self.hparams.num_classes)
 
         # self.acc_train_labelled_prototypes = torchmetrics.Accuracy(task=task, num_classes=self.hparams.num_classes)
@@ -237,17 +237,12 @@ class STiLModel(pl.LightningModule):
         """
         Train and log.
         """
-        current_epoch = self.current_epoch
-        batch_l, batch_u = batch['l'], batch['u']
-        im_views_l, tab_views_l, y_l, _, label_identify_l = batch_l
-        im_views_u, tab_views_u, y_u, _, label_identify_u = batch_u
-        B_l, B_u = len(y_l), len(y_u)
-        assert torch.sum(label_identify_l) == len(label_identify_l)
-        assert torch.sum(label_identify_u) == 0
+        x, y = batch
+        im_views, tab_views = x
+        B_l = len(y)
         # use augmented image and tabular views
-        y_hat_m, y_hat_i, y_hat_t, x_si_enhance, x_si, x_ai, x_st_enhance, x_st, x_at, x_c = self.model.forward_all(x=[torch.cat((im_views_l[1], im_views_u[1])), torch.cat((tab_views_l[1], tab_views_u[1]))], y=y_l)
-        prob_m = torch.softmax(y_hat_m.detach(), dim=1)
-        prob_m_l, prob_m_u = prob_m[:B_l], prob_m[B_l:]
+        y_hat_m, y_hat_i, y_hat_t, x_si_enhance, x_si, x_ai, x_st_enhance, x_st, x_at, x_c = self.model.forward_all(x=[im_views, tab_views], y=y)
+
         feat_m = torch.cat((x_si_enhance, x_c, x_st_enhance), dim=1)
         feat_m, feat_i, feat_t = self.project_3features(feat_m, x_ai, x_at)
 
@@ -257,96 +252,69 @@ class STiLModel(pl.LightningModule):
         with torch.no_grad():
             if self.use_ema:
                 self.momentum_update_ema()
-                y_hat_m_e, y_hat_i_e, y_hat_t_e, x_si_enhance_e, _, _, x_st_enhance_e, _, _, x_c_e = self.ema.forward_all(x=[torch.cat((im_views_l[1], im_views_u[1])), torch.cat((tab_views_l[1], tab_views_u[1]))], y=y_l)
+                y_hat_m_e, y_hat_i_e, y_hat_t_e, x_si_enhance_e, _, _, x_st_enhance_e, _, _, x_c_e = self.ema.forward_all(x=[im_views, tab_views], y=y)
                 feat_m_e = torch.cat((x_si_enhance_e, x_c_e, x_st_enhance_e), dim=1)
                 feat_m_e, _, _ = self.project_3features(feat_m_e, None, None)
             else:
                 y_hat_m_e, y_hat_i_e, y_hat_t_e = y_hat_m, y_hat_i, y_hat_t
                 feat_m_e = feat_m
             feat_m_e = feat_m_e.detach()
-            feat_m_le, feat_m_ue = feat_m_e[:B_l], feat_m_e[B_l:]
-            y_hat_m_ue, y_hat_i_ue, y_hat_t_ue = y_hat_m_e[B_l:], y_hat_i_e[B_l:], y_hat_t_e[B_l:]
-            # case identification. case1: all the same, case2: two the same, case3: else
-            prob_m_ue, prob_i_ue, prob_t_ue = torch.softmax(y_hat_m_ue.detach(), dim=1), torch.softmax(y_hat_i_ue.detach(), dim=1), torch.softmax(y_hat_t_ue.detach(), dim=1)
-            top1_m, top1_i, top1_t = torch.argmax(prob_m_ue, dim=1), torch.argmax(prob_i_ue, dim=1), torch.argmax(prob_t_ue, dim=1)
-            case1 = ((top1_m == top1_i) & (top1_m == top1_t))
-            case2_i = ((top1_m == top1_i) & (top1_m != top1_t))
-            case2_t = (top1_m == top1_t) & (top1_m != top1_i)
-            case3 = ~(case1 | case2_i | case2_t)
+        #    # case identification. case1: all the same, case2: two the same, case3: else
+            prob_m_e, prob_i_e, prob_t_e = torch.softmax(y_hat_m_e.detach(), dim=1), torch.softmax(y_hat_i_e.detach(), dim=1), torch.softmax(y_hat_t_e.detach(), dim=1)
+            top1_m, top1_i, top1_t = torch.argmax(prob_m_e, dim=1), torch.argmax(prob_i_e, dim=1), torch.argmax(prob_t_e, dim=1)
             
-            self.acc_classifier_multi(prob_m_ue, y_u)
-            self.acc_classifier_image(prob_i_ue, y_u)
-            self.acc_classifier_tabular(prob_t_ue, y_u)
+            self.acc_classifier_multi(top1_m, y)
+            self.acc_classifier_image(top1_i, y)
+            self.acc_classifier_tabular(top1_t, y)
+            
+            entropy_m = -torch.sum(prob_m_e * torch.log(prob_m_e), dim=1)
+            entropy_i = -torch.sum(prob_i_e * torch.log(prob_i_e), dim=1)
+            entropy_t = -torch.sum(prob_t_e * torch.log(prob_t_e), dim=1)
+            
+            self.log(f'multimodal.classifier.entropy', entropy_m, on_epoch=True, on_step=False, batch_size=B_l)
+            self.log(f'image.classifier.entropy', entropy_i, on_epoch=True, on_step=False, batch_size=B_l)
+            self.log(f'tabular.classifier.entropy', entropy_t, on_epoch=True, on_step=False, batch_size=B_l) 
             
             with torch.no_grad():
-                corr_matrix_m = torch.corrcoef(torch.stack((top1_m, y_u)))
-                correlation_m = corr_matrix_m[0, 1]
-                self.log(f"classifier.multimodal.logits.correlation", correlation_m, on_epoch=True, on_step=False, batch_size=B_l)
-
-                corr_matrix_i = torch.corrcoef(torch.stack((top1_i, y_u)))
-                correlation_i = corr_matrix_i[0, 1]
-                self.log(f"classifier.image.logits.correlation", correlation_i, on_epoch=True, on_step=False, batch_size=B_l)
-
-                corr_matrix_t = torch.corrcoef(torch.stack((top1_t, y_u)))
-                correlation_t = corr_matrix_t[0, 1]
-                self.log(f"classifier.tabular.logits.correlation", correlation_t, on_epoch=True, on_step=False, batch_size=B_l)
+                
+                case1 = ((top1_m == top1_i) & (top1_m == top1_t))
+                case2_i = ((top1_m == top1_i) & (top1_m != top1_t))
+                case2_t = (top1_m == top1_t) & (top1_m != top1_i)
+                case3 = ~(case1 | case2_i | case2_t)
+                assert ((case1.float()+case2_i.float()+case2_t.float()+case3.float()) == torch.ones_like(case1, device=case1.device).float()).all()
+                
+                self.log(f'multimodal.train.case1_ratio', torch.sum(case1)/len(case1), on_epoch=True, on_step=False, batch_size=B_l)
+                self.log(f'multimodal.train.case2_i_ratio', torch.sum(case2_i)/len(case2_i), on_epoch=True, on_step=False, batch_size=B_l)
+                self.log(f'multimodal.train.case2_t_ratio', torch.sum(case2_t)/len(case2_t), on_epoch=True, on_step=False, batch_size=B_l)
+                self.log(f'multimodal.train.case3_ratio', torch.sum(case3)/len(case3), on_epoch=True, on_step=False, batch_size=B_l)         
             
-            assert ((case1.float()+case2_i.float()+case2_t.float()+case3.float()) == torch.ones_like(case1, device=case1.device).float()).all()
-            # pseudo label for different cases
-            case1_pseudo_label = self.sharpen_predictions((y_hat_m_ue + y_hat_i_ue + y_hat_t_ue)/3.0, 1.0)
-            case2_i_pseudo_label = self.sharpen_predictions((y_hat_m_ue + y_hat_i_ue)/2.0, 1.0)
-            case2_t_pseudo_label = self.sharpen_predictions((y_hat_m_ue + y_hat_t_ue)/2.0, 1.0)
-            case3_pseudo_label = self.sharpen_predictions(y_hat_m_ue, 1.0)
-            pseudo_label_orig = case1[:,None]*case1_pseudo_label + case2_i[:,None]*case2_i_pseudo_label + case2_t[:,None]*case2_t_pseudo_label + case3[:,None]*case3_pseudo_label
-            # get prediction for threshold of pseudo label
-            if self.hparams.DA == True:
-                prediction = self.distribution_alignment(torch.softmax(y_hat_m_ue, dim=1))
+            
+            # Weighted combination of logits
+            if self.train_logit_consent:
+                w = F.softmax(torch.stack([self.w_m, self.w_i, self.w_t]), dim=0)
+                p_prime = w[0] * y_hat_m + w[1] * y_hat_i + w[2] * y_hat_t
+                # Cross-entropy loss with ground truth labels
+                loss_p_prime = self.criterion_ce(p_prime, y)
+                self.log(f"multimodal.train.p_prime_loss", loss_p_prime, on_epoch=True, on_step=False, batch_size=B_l)
             else:
-                prediction = self.sharpen_predictions(y_hat_m_ue, 1.0)
-
+                loss_p_prime = 0.0
             
         # =============================  classification ======================================
         # student labelled CE loss
-        loss_ce = self.criterion_ce(y_hat_m[:B_l], y_l) + self.criterion_ce(y_hat_i[:B_l], y_l) + self.criterion_ce(y_hat_t[:B_l], y_l)
-        prob_m_l = torch.softmax(y_hat_m[:B_l].detach(), dim=1)
-        max_prob_l, max_idx_l = torch.max(prob_m_l, dim=1)
-        self.log(f"multimodal.train.CEloss", loss_ce, on_epoch=True, on_step=False, batch_size=B_l+B_u)
+        loss_ce = self.criterion_ce(y_hat_m, y) + self.criterion_ce(y_hat_i, y) + self.criterion_ce(y_hat_t, y)
+        prob_m_l = torch.softmax(y_hat_m.detach(), dim=1)
+        self.log(f"multimodal.train.CEloss", loss_ce, on_epoch=True, on_step=False, batch_size=B_l)
 
-        # student pseudo label loss
-        # final pseudo label = rate_pseudo*pseudo_label_orig + (1-rate_pseudo)*teacher_probs
-        prototypes = self.prototypes.clone().detach()
-        with torch.no_grad():
-            teacher_logits = feat_m_ue @ prototypes.t()
-            teacher_probs = torch.softmax(teacher_logits/self.T, dim=1)
-            pseudo_label = self.rate_pseudo*pseudo_label_orig + (1-self.rate_pseudo)*teacher_probs
-            prediction = self.rate_pseudo*prediction + (1-self.rate_pseudo)*teacher_probs
-            max_prob, max_idx = torch.max(prediction, dim=1)
-            mask1 = max_prob.ge(self.th1)
-            mask_random = torch.rand_like(mask1.float(), device=mask1.device).ge(0.5)
-
-        loss_m_u = (F.cross_entropy(y_hat_m[B_l:], pseudo_label, reduction='none')*mask1*(case1)).mean()
-        loss_i_u = (F.cross_entropy(y_hat_i[B_l:], pseudo_label, reduction='none')*mask1*(case1+case2_t+case3*mask_random)).mean()
-        loss_t_u = (F.cross_entropy(y_hat_t[B_l:], pseudo_label, reduction='none')*mask1*(case1+case2_i+case3*(~mask_random))).mean()
-        self.log(f"multimodal.train.CEloss_unlabelled_m", loss_m_u, on_epoch=True, on_step=False, batch_size=B_l+B_u)
-        self.log(f"multimodal.train.CEloss_unlabelled_i", loss_i_u, on_epoch=True, on_step=False, batch_size=B_l+B_u)
-        self.log(f"multimodal.train.CEloss_unlabelled_t", loss_t_u, on_epoch=True, on_step=False, batch_size=B_l+B_u)
-        self.log(f'multimodal.train.threshold1_ratio', torch.sum(mask1)/len(mask1), on_epoch=True, on_step=False, batch_size=B_l+B_u)
-        self.log(f'multimodal.train.case1_ratio', torch.sum(case1)/len(case1), on_epoch=True, on_step=False, batch_size=B_l+B_u)
-        self.log(f'multimodal.train.case2_i_ratio', torch.sum(case2_i)/len(case2_i), on_epoch=True, on_step=False, batch_size=B_l+B_u)
-        self.log(f'multimodal.train.case2_t_ratio', torch.sum(case2_t)/len(case2_t), on_epoch=True, on_step=False, batch_size=B_l+B_u)
-        self.log(f'multimodal.train.case3_ratio', torch.sum(case3)/len(case3), on_epoch=True, on_step=False, batch_size=B_l+B_u)
+        #self.log(f'multimodal.train.threshold1_ratio', torch.sum(mask1)/len(mask1), on_epoch=True, on_step=False, batch_size=B_l)
+        #self.log(f'multimodal.train.case1_ratio', torch.sum(case1)/len(case1), on_epoch=True, on_step=False, batch_size=B_l)
+        #self.log(f'multimodal.train.case2_i_ratio', torch.sum(case2_i)/len(case2_i), on_epoch=True, on_step=False, batch_size=B_l)
+        #self.log(f'multimodal.train.case2_t_ratio', torch.sum(case2_t)/len(case2_t), on_epoch=True, on_step=False, batch_size=B_l)
+        #self.log(f'multimodal.train.case3_ratio', torch.sum(case3)/len(case3), on_epoch=True, on_step=False, batch_size=B_l)
 
 
         # ============================= itc loss =======================================
-        # update based on feat_i, feat_t
-        # multimodal contrast probs = softmax(sim_embed_m)*pos_mask, normalize
-        if current_epoch > self.start_epoch:
-            pass 
-        else:
-            prediction = torch.zeros_like(prediction, device=prediction.device)
-        pseudo_label_all = torch.cat((F.one_hot(y_l, self.hparams.num_classes).float(), prediction), dim=0)
         loss_itc, logits, labels = self.criterion_itc(feat_i, feat_t)
-        self.log(f"multimodal.train.ITCloss", loss_itc, on_epoch=True, on_step=False, batch_size=B_l+B_u)
+        self.log(f"multimodal.train.ITCloss", loss_itc, on_epoch=True, on_step=False, batch_size=B_l)
 
         
         # ==================================== disentangle loss ===========================================
@@ -354,59 +322,16 @@ class STiLModel(pl.LightningModule):
         loss_club_i_est = self.CLUB_imaging.learning_loss(x_si, x_ai)
         loss_club_t = self.CLUB_tabular(x_st, x_at)
         loss_club_t_est = self.CLUB_tabular.learning_loss(x_st, x_at)
-        self.log(f"multimodal.train.CLUBloss_imaging", loss_clubi, on_epoch=True, on_step=False, batch_size=B_l+B_u)
-        self.log(f"multimodal.train.CLUBloss_imaging_est", loss_club_i_est, on_epoch=True, on_step=False, batch_size=B_l+B_u)
-        self.log(f"multimodal.train.CLUBloss_tabular", loss_club_t, on_epoch=True, on_step=False, batch_size=B_l+B_u)
-        self.log(f"multimodal.train.CLUBloss_tabular_est", loss_club_t_est, on_epoch=True, on_step=False, batch_size=B_l+B_u)
+        self.log(f"multimodal.train.CLUBloss_imaging", loss_clubi, on_epoch=True, on_step=False, batch_size=B_l)
+        self.log(f"multimodal.train.CLUBloss_imaging_est", loss_club_i_est, on_epoch=True, on_step=False, batch_size=B_l)
+        self.log(f"multimodal.train.CLUBloss_tabular", loss_club_t, on_epoch=True, on_step=False, batch_size=B_l)
+        self.log(f"multimodal.train.CLUBloss_tabular_est", loss_club_t_est, on_epoch=True, on_step=False, batch_size=B_l)
 
-
-        # ============================= prototype loss ============================================
-        # update based on feat_m
-        loss_pt = self.criterion_pt(pseudo_label_all, prototypes, feat_m)
-        self.log(f"multimodal.train.PTloss", loss_itc, on_epoch=True, on_step=False, batch_size=B_l+B_u)
-
-        if  current_epoch <= self.start_epoch:
-            loss = self.alpha*loss_ce + self.beta*loss_itc + self.gamma*(loss_clubi + loss_club_i_est + loss_club_t + loss_club_t_est)
-        else:
-            loss = self.alpha*loss_ce + self.beta*loss_itc + self.gamma*(loss_clubi + loss_club_i_est + loss_club_t + loss_club_t_est) + self.rate_pt*loss_pt + self.rate_uce*(loss_m_u + loss_i_u + loss_t_u)
-        self.log(f"multimodal.train.loss", loss, on_epoch=True, on_step=False, batch_size=B_l+B_u)
-
-
-        # labelled task accuracy
-        l_teacher_logits = feat_m_le @ prototypes.t()
-        l_teacher_probs = torch.softmax(l_teacher_logits/self.T, dim=1)
-        if self.hparams.num_classes==2:
-            prob_m_l = prob_m_l[:,1]
-            prob_m_u = prob_m_u[:,1]
-            pseudo_label = pseudo_label[:,1]
-            teacher_probs = teacher_probs[:,1]
-            l_teacher_probs = l_teacher_probs[:,1]
+        loss = self.alpha*loss_ce + self.beta*loss_itc + self.gamma*(loss_clubi + loss_club_i_est + loss_club_t + loss_club_t_est) + self.epsilon*loss_p_prime
+        self.log(f"multimodal.train.loss", loss, on_epoch=True, on_step=False, batch_size=B_l)
             
-        self.acc_train(prob_m_l, y_l)
-        self.auc_train(prob_m_l, y_l)
-        self.acc_train_unlabelled(prob_m_u, y_u)
-        self.auc_train_unlabelled(prob_m_u, y_u)
-        # self.acc_train_labelled_prototypes(l_teacher_probs, y_l)
-        # self.acc_train_unlabelled_prototypes(teacher_probs, y_u)
-
-        # Comment. May cause ddp stuck
-        # if torch.sum(mask1) > 0:
-        #     self.use_pseudo = True
-        #     self.acc_train_pseudo(pseudo_label[mask1], y_u[mask1])
-        #     self.auc_train_pseudo(pseudo_label[mask1], y_u[mask1])
-            # self.acc_train_pseudo_prototypes(teacher_probs[mask1], y_u[mask1])
-            # self.auc_train_pseudo_prototypes(teacher_probs[mask1], y_u[mask1])
-
-        with torch.no_grad():
-            # update prototypes
-            class_sum, class_count = self.cal_prototypes_separate(pseudo_label_all, feat_m_e, B_l)
-            if self.use_ddp:
-                dist.all_reduce(class_sum, op=dist.ReduceOp.SUM)
-                dist.all_reduce(class_count, op=dist.ReduceOp.SUM)
-            self.prototypes_sum.data.add_(class_sum.detach())
-            self.prototypes_count_sum.data.add_(class_count.detach())
-        
-        del prototypes, class_sum, class_count
+        self.acc_train(prob_m_l, y)
+        self.auc_train(prob_m_l, y)
         
         torch.cuda.empty_cache()
         return loss
@@ -430,13 +355,10 @@ class STiLModel(pl.LightningModule):
         self.log('eval.train.teacher.latent.table.aug_rate', teacher_aug_sum["table_rate"], on_epoch=True, on_step=False)
         
         self.log('eval.train.acc', self.acc_train, on_epoch=True, on_step=False, metric_attribute=self.acc_train)
+        self.log('eval.train.auc', self.auc_train, on_epoch=True, on_step=False, metric_attribute=self.auc_train)
         self.log('classifier.multi.acc', self.acc_classifier_multi, on_epoch=True, on_step=False, metric_attribute=self.acc_classifier_multi)
         self.log('classifier.image.acc', self.acc_classifier_image, on_epoch=True, on_step=False, metric_attribute=self.acc_classifier_image)
         self.log('classifier.tab.acc', self.acc_classifier_tabular, on_epoch=True, on_step=False, metric_attribute=self.acc_classifier_tabular)
-        
-        self.log('eval.train.auc', self.auc_train, on_epoch=True, on_step=False, metric_attribute=self.auc_train)
-        self.log('eval.train_unlabelled.acc', self.acc_train_unlabelled, on_epoch=True, on_step=False, metric_attribute=self.acc_train_unlabelled)
-        self.log('eval.train_unlabelled.auc', self.auc_train_unlabelled, on_epoch=True, on_step=False, metric_attribute=self.auc_train_unlabelled)
         # self.log('eval.train.l_prot_acc', self.acc_train_labelled_prototypes, on_epoch=True, on_step=False, metric_attribute=self.acc_train_labelled_prototypes)
         # self.log('eval.train.u_prot_acc', self.acc_train_unlabelled_prototypes, on_epoch=True, on_step=False, metric_attribute=self.acc_train_unlabelled_prototypes)
         # if self.use_pseudo:
@@ -446,18 +368,7 @@ class STiLModel(pl.LightningModule):
             # self.log('eval.train_pseudo_prototypes.auc', self.auc_train_pseudo_prototypes, on_epoch=True, on_step=False, metric_attribute=self.auc_train_pseudo_prototypes)
             # self.use_pseudo = False
         
-        self.print(f'Epoch {self.current_epoch}: train.acc: {self.acc_train.compute()}, train.auc: {self.auc_train.compute()}, train.acc_unlabelled: {self.acc_train_unlabelled.compute()}, train.auc_unlabelled: {self.auc_train_unlabelled.compute()}')
-
-        with torch.no_grad():
-            prototypes_count_sum = self.prototypes_count_sum.detach()
-            prototypes_sum = self.prototypes_sum.detach()
-            zero_count = torch.where(prototypes_count_sum < 1)[0]
-            assert len(zero_count) == 0
-            self.prototypes.data.copy_(prototypes_sum / prototypes_count_sum)
-            self.prototypes_sum.zero_()
-            self.prototypes_count_sum.zero_()
-
-        del prototypes_count_sum, prototypes_sum, zero_count
+        self.print(f'Epoch {self.current_epoch}: train.acc: {self.acc_train.compute()}, train.auc: {self.auc_train.compute()}')
 
         if self.use_ddp:
             dist.barrier()
@@ -566,7 +477,21 @@ class STiLModel(pl.LightningModule):
         #if self.hparams.tta:
         #    # TODO: Implement TTA here
         
-        y_hat, _, _, _, _, _, _, _ = self.model.forward(x)
+        y_hat, y_hat_i, y_hat_t, _, _, _, _, _ = self.model.forward(x)
+        #print(y_hat)
+        #
+        #with torch.no_grad():
+        #    corr_matrix_m = torch.corrcoef(torch.stack((top1_m, y)))
+        #    correlation_m = corr_matrix_m[0, 1]
+        #    self.log(f"classifier.multimodal.logits.correlation", correlation_m, on_epoch=True, on_step=False, batch_size=B_l)
+        #    #
+        #    corr_matrix_i = torch.corrcoef(torch.stack((top1_i, y)))
+        #    correlation_i = corr_matrix_i[0, 1]
+        #    self.log(f"classifier.image.logits.correlation", correlation_i, on_epoch=True, on_step=False, batch_size=B_l)
+        #    #
+        #    corr_matrix_t = torch.corrcoef(torch.stack((top1_t, y)))
+        #    correlation_t = corr_matrix_t[0, 1]
+        #    self.log(f"classifier.tabular.logits.correlation", correlation_t, on_epoch=True, on_step=False, batch_size=B_l)            
 
         y_hat = torch.softmax(y_hat.detach(), dim=1)
         if self.hparams.num_classes==2:

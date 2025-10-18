@@ -30,10 +30,11 @@ data_base_bio: /vol/biomedic3/sd1523/data/mm/DVM/features
 data_base_hpc: /rds/general/user/sd1523/home/data/mm/DVM/features
 num_workers: 10
 sweep: False
+train_logit_consent: False
 
-algorithm_name: STiL
+algorithm_name: STiL_train_consent
 pretrained_model: TIP
-strategy: semisl
+strategy: tip
 dataset_name: dvm
 exp_name: NA
 
@@ -44,8 +45,6 @@ sql_address:
 missing_tabular: False
 missing_strategy: None
 missing_rate: None
-
-unlabelled_batch_ratio: 7.0
 
 # Multimodal
 scheduler: anneal
@@ -132,7 +131,7 @@ eval_datatype: imaging_and_tabular
 
 # General
 seed: 2022
-max_epochs: 1
+max_epochs: 500
 log_images: False
 use_wandb: True
 limit_train_batches: 1.0
@@ -160,6 +159,7 @@ drop_rate: 0.0
 alpha: 0.2
 beta: 3.0
 gamma: 0.5
+epsilon: 0.1
 rate_pt: 1.0  # prototype clustering loss
 rate_uce: 0.2
 unlabelled_ratio: 7
@@ -221,24 +221,4 @@ data_train_eval_tabular_unlabelled_short:
 labels_train_eval_tabular_unlabelled_short:
 
 latent_augmentation:
-  #when: CGPL
-  #modality:
-  #  - name: image
-  #    method:
-  #      - name: mixstyle
-  #        alpha: 0.1
-  #        rate: 0.01
-  #        seed: 2022
-  #  - name: tabular
-  #    method:
-  #      - name: mixstyle
-  #        alpha: 0.1
-  #        rate: 0.01
-  #        seed: 2022
-  #  - name: multimodal
-  #    method:
-  #      - name: mixstyle
-  #        alpha: 0.1
-  #        rate: 0.01
-  #        seed: 2022
 
