@@ -27,7 +27,7 @@ from utils.AugmentSummarizer import AugmentSummarizer
 from models.Disentangle.utils.club import CLUBMean
 
 
-class STiLModel_Consent(pl.LightningModule):
+class STiLModel_MoE(pl.LightningModule):
     def __init__(self, hparams):
         super().__init__()
         self.save_hyperparameters(hparams)
@@ -110,12 +110,6 @@ class STiLModel_Consent(pl.LightningModule):
         print(f'ITC imaging head: {self.projector_imaging}')
         print(f'ITC tabular head: {self.projector_tabular}')
         print(f'ITC multimodal head: {self.projector_multimodal}')
-        
-        self.w_m = nn.Parameter(torch.tensor(1.0 / 3))
-        self.w_i = nn.Parameter(torch.tensor(1.0 / 3))
-        self.w_t = nn.Parameter(torch.tensor(1.0 / 3))
-        
-        self.train_logit_consent = self.hparams.train_logit_consent
 
     def load_weights(self, module, module_name, state_dict):
         state_dict_module = {}
@@ -267,10 +261,6 @@ class STiLModel_Consent(pl.LightningModule):
             self.acc_classifier_image(top1_i, y)
             self.acc_classifier_tabular(top1_t, y)
             
-            print(prob_m_e)
-            print(prob_i_e)
-            print(prob_t_e)
-            
             entropy_m = -torch.sum(prob_m_e * torch.log(prob_m_e + 1e-9), dim=1)
             entropy_i = -torch.sum(prob_i_e * torch.log(prob_i_e + 1e-9), dim=1)
             entropy_t = -torch.sum(prob_t_e * torch.log(prob_t_e + 1e-9), dim=1)
@@ -291,17 +281,6 @@ class STiLModel_Consent(pl.LightningModule):
                 self.log(f'multimodal.train.case2_i_ratio', torch.sum(case2_i)/len(case2_i), on_epoch=True, on_step=False, batch_size=B_l)
                 self.log(f'multimodal.train.case2_t_ratio', torch.sum(case2_t)/len(case2_t), on_epoch=True, on_step=False, batch_size=B_l)
                 self.log(f'multimodal.train.case3_ratio', torch.sum(case3)/len(case3), on_epoch=True, on_step=False, batch_size=B_l)         
-            
-            
-            # Weighted combination of logits
-            if self.train_logit_consent:
-                w = F.softmax(torch.stack([self.w_m, self.w_i, self.w_t]), dim=0)
-                p_prime = w[0] * y_hat_m + w[1] * y_hat_i + w[2] * y_hat_t
-                # Cross-entropy loss with ground truth labels
-                loss_p_prime = self.criterion_ce(p_prime, y)
-                self.log(f"multimodal.train.p_prime_loss", loss_p_prime, on_epoch=True, on_step=False, batch_size=B_l)
-            else:
-                loss_p_prime = 0.0
             
         # =============================  classification ======================================
         # student labelled CE loss

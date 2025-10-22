@@ -12,7 +12,7 @@ run_experiment () {
   for ds in "${DATASETS[@]}"; do
     for mod in "${MODALITIES[@]}"; do
       CONFIG="config_dvm_STiL_consent"
-      EXP="latent_augmentation_results/input_only/STiL_all_labelled_${ds}"
+      EXP="latent_augmentation_results/input_only/STiL_all_labelled_no_ema_${ds}"
       LOG="error_logs/STiL_all_labelled_${ds}.log"
       #
       echo ">>> Running $TAG: dataset=$ds, modality=$mod"
@@ -30,7 +30,7 @@ run_experiment () {
 #
 
 # Experiment
-DATASETS2=("black" "miles" "normal" "color_miles")
+DATASETS2=("normal" "color_miles" "black" "miles")
 MODALITIES2=("")
 PRETRAIN=(FALSE)
 run_experiment DATASETS2[@] MODALITIES2[@] PRETRAIN[@] "STiL-all-labelled"

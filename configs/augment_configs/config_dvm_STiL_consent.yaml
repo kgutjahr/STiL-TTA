@@ -30,7 +30,7 @@ data_base_bio: /vol/biomedic3/sd1523/data/mm/DVM/features
 data_base_hpc: /rds/general/user/sd1523/home/data/mm/DVM/features
 num_workers: 10
 sweep: False
-train_logit_consent: False
+train_logit_consent: True
 
 algorithm_name: STiL_train_consent
 pretrained_model: TIP
@@ -177,7 +177,7 @@ sharpen_temperature: 0.1
 share_weights: False
 
 # teacher
-use_ema: True
+use_ema: False
 eman: True
 ema_momentum: 0.996
 DA: False   # distribution alignment
