@@ -6,7 +6,7 @@ target: adni
 task: classification
 
 data_base: 
-data_base_cq: /mnt/data/kgutjahr/datasets/ADNI/ADNI1_Annual_2_Yr_3T/processed_data/weight
+data_base_cq: /data/local/kgutjahr/datasets/ADNI/dataset_files/weight
 
 num_classes: 3
 weights:
@@ -18,8 +18,8 @@ data_orig:
 low_data_splits: ['']
 
 # num of features
-num_cat: 4
-num_con: 6
+num_cat: 5
+num_con: 5
 
 labels_train: labels_train.pt
 labels_val: labels_val.pt 

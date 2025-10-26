@@ -18,8 +18,9 @@ def process_DVM(
         for path in tqdm(img_paths):
             img_np = plt.imread(path)
             save_path = path[:-4] + '.npy'
-            np.save(save_path, img_np)
-            np_paths.append(save_path)
+            if not os.path.exists(save_path):
+                np.save(save_path, img_np)
+                np_paths.append(save_path)
         #     break
         # break
     return
@@ -27,4 +28,4 @@ def process_DVM(
             
 
 if __name__ == '__main__':
-    process_DVM('/mnt/data/kgutjahr/datasets/ADNI/ADNI1_Annual_2_Yr_3T/processed_data/normal')
+    process_DVM('/data/local/kgutjahr/datasets/ADNI/dataset_files/age')

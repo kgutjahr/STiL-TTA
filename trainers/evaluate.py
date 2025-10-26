@@ -256,7 +256,7 @@ def evaluate(hparams, wandb_logger):
 
     test_loader = DataLoader(
       test_dataset,
-      num_workers=hparams.num_workers, batch_size=512,  
+      num_workers=hparams.num_workers, batch_size=hparams.batch_size,  
       pin_memory=True, shuffle=False, drop_last=drop, persistent_workers=True)
   
     print(f"Number of testing batches: {len(test_loader)}")

@@ -1,6 +1,6 @@
 import os 
 os.environ["WANDB_MODE"] = "offline"
-os.environ["WANDB_DIR"] = "/mnt/data/kgutjahr/results/test"
+os.environ["WANDB_DIR"] = "/data/local/kgutjahr/results/test"
 
 import sys
 import time

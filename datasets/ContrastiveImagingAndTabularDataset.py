@@ -72,7 +72,7 @@ class ContrastiveImagingAndTabularDataset(Dataset):
           A.Lambda(name='convert2tensor', image=convert_to_ts)
         ])
         print(f'Using dvm transform for default transform in ContrastiveImagingAndTabularDataset')
-      elif self.target == 'Infarction' or self.target == 'CAD':
+      elif self.target == 'Infarction' or self.target == 'CAD' or self.target == 'adni':
         self.default_transform = A.Compose([
           A.Resize(height=img_size, width=img_size),
           A.Lambda(name='convert2tensor', image=convert_to_ts_01)

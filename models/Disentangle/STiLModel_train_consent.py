@@ -267,10 +267,6 @@ class STiLModel_Consent(pl.LightningModule):
             self.acc_classifier_image(top1_i, y)
             self.acc_classifier_tabular(top1_t, y)
             
-            print(prob_m_e)
-            print(prob_i_e)
-            print(prob_t_e)
-            
             entropy_m = -torch.sum(prob_m_e * torch.log(prob_m_e + 1e-9), dim=1)
             entropy_i = -torch.sum(prob_i_e * torch.log(prob_i_e + 1e-9), dim=1)
             entropy_t = -torch.sum(prob_t_e * torch.log(prob_t_e + 1e-9), dim=1)
@@ -478,11 +474,7 @@ class STiLModel_Consent(pl.LightningModule):
         """
         x,y = batch
         
-        #if self.hparams.tta:
-        #    # TODO: Implement TTA here
-        
         y_hat, y_hat_i, y_hat_t, _, _, _, _, _ = self.model.forward(x)
-        #print(y_hat)
         #
         #with torch.no_grad():
         #    corr_matrix_m = torch.corrcoef(torch.stack((top1_m, y)))
@@ -498,6 +490,17 @@ class STiLModel_Consent(pl.LightningModule):
         #    self.log(f"classifier.tabular.logits.correlation", correlation_t, on_epoch=True, on_step=False, batch_size=B_l)            
 
         y_hat = torch.softmax(y_hat.detach(), dim=1)
+        y_hat_i = torch.softmax(y_hat_i.detach(), dim=1)
+        y_hat_t = torch.softmax(y_hat_t.detach(), dim=1)
+        
+        entropy_m = -torch.sum(y_hat * torch.log(y_hat + 1e-9), dim=1)
+        entropy_i = -torch.sum(y_hat_i * torch.log(y_hat_i + 1e-9), dim=1)
+        entropy_t = -torch.sum(y_hat_t * torch.log(y_hat_t + 1e-9), dim=1)
+        
+        self.log(f'multimodal.test.classifier.entropy', entropy_m, on_epoch=True, on_step=False, batch_size=x[0].size()[0])
+        self.log(f'image.test.classifier.entropy', entropy_i, on_epoch=True, on_step=False, batch_size=x[0].size()[0])
+        self.log(f'tabular.test.classifier.entropy', entropy_t, on_epoch=True, on_step=False, batch_size=x[0].size()[0])
+        
         if self.hparams.num_classes==2:
             y_hat = y_hat[:,1]
 
