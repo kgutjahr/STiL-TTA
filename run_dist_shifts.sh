@@ -4,33 +4,40 @@
 mkdir -p error_logs
 
 run_experiment () {
-  local DATASETS=("${!1}")
-  local MODALITIES=("${!2}")
+  local CONFIGS=("${!1}")
+  local DATASETS=("${!2}")
   local PRETRAIN=("${!3}")
-  local TAG=$4
+  local DEVICE=$4
+  local REPEAT=$5
+  local TAG=$6
 
-  for ds in "${DATASETS[@]}"; do
-    for mod in "${MODALITIES[@]}"; do
-      CONFIG="config_dvm_STiL_consent"
-      EXP="latent_augmentation_results/input_only/STiL_all_labelled_no_ema_${ds}"
-      LOG="error_logs/STiL_all_labelled_${ds}.log"
-      #
-      echo ">>> Running $TAG: dataset=$ds, modality=$mod"
-      CUDA_VISIBLE_DEVICES=1 python -u run.py \
-        --config-name "$CONFIG" \
-        dataset="shifted_configs/TIP/dvm_all_server_reordered_SemiPseudo_TIP_${ds}" \
-        exp_name="$EXP" \
-        evaluate=True \
-        pretrain="${PRETRAIN[@]}"
-        2> "$LOG"
-      echo ">>> Finished $TAG: dataset=$ds, modality=$mod"
+  for ((i=1; i<=$REPEAT; i++)); do
+    for con in "${CONFIGS[@]}"; do
+      for ds in "${DATASETS[@]}"; do
+        CONFIG="config_dvm_STiL_consent"
+        EXP="ADNI/baseline/${ds}"
+        LOG="error_logs/${ds}.log"
+        #
+        echo ">>> Running $TAG: dataset=$ds, modality=$con"
+        CUDA_VISIBLE_DEVICES=$DEVICE python -u run.py \
+          --config-name "$CONFIG" \
+          dataset="shifted_configs/ADNI/adni_${ds}" \
+          exp_name="$EXP" \
+          evaluate=True \
+          pretrain="${PRETRAIN[@]}"
+          2> "$LOG"
+        echo ">>> Finished $TAG: dataset=$ds, modality=$con"
+      done
     done
   done
 }
 #
 
 # Experiment
-DATASETS2=("normal" "color_miles" "black" "miles")
-MODALITIES2=("")
+CONFIGS=("config_dvm_STiL_consent")
+DATASETS=("normal" "weight" "age" "TE")
+DEVICE=1
+REPEAT=8
+
 PRETRAIN=(FALSE)
-run_experiment DATASETS2[@] MODALITIES2[@] PRETRAIN[@] "STiL-all-labelled"
+run_experiment CONFIGS[@] DATASETS[@] PRETRAIN[@] $DEVICE $REPEAT "STiL-all-labelled"

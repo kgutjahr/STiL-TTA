@@ -72,7 +72,7 @@ pretrained_imaging_strategy: trainable
 
 multiple_lr: False
 
-batch_size: 16
+batch_size: 32
 # biobank
 # lr: 3.e-3
 # lr_eval: 1.e-3
@@ -159,7 +159,7 @@ drop_rate: 0.0
 alpha: 0.2
 beta: 3.0
 gamma: 0.5
-epsilon: 0.1
+epsilon: 0.2
 rate_pt: 1.0  # prototype clustering loss
 rate_uce: 0.2
 unlabelled_ratio: 7

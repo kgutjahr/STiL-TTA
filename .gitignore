@@ -4,3 +4,4 @@ outputs/
 *.ckpt
 screenlog.0
 .vscode/
+error_logs/
