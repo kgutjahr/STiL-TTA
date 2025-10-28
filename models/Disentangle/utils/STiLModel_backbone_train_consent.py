@@ -53,6 +53,7 @@ class DisCoAttentionBackbone(nn.Module):
         self.pooled_dim = args.embedding_dim
         self.hidden_dim = args.multimodal_embedding_dim
         self.augmentation_dict = args.latent_augmentation
+        self.cut_classifier_input = args.cut_classifier_input
         
         self.aug_summarizer = aug_summarizer
 
@@ -69,9 +70,14 @@ class DisCoAttentionBackbone(nn.Module):
         if args.pretrain == True and args.checkpoint is None:
             print('Pretrain model does not have aggregation and classifier')
         else:
-            self.classifier_multimodal = nn.Linear(self.hidden_dim*3, args.num_classes)
-            self.classifier_imaging = nn.Linear(self.hidden_dim*2, args.num_classes)
-            self.classifier_tabular = nn.Linear(self.hidden_dim*2, args.num_classes)
+            if not self.cut_classifier_input:
+                self.classifier_multimodal = nn.Linear(self.hidden_dim*3, args.num_classes)
+                self.classifier_imaging = nn.Linear(self.hidden_dim*2, args.num_classes)
+                self.classifier_tabular = nn.Linear(self.hidden_dim*2, args.num_classes)
+            else:
+                self.classifier_multimodal = nn.Linear(self.hidden_dim*3, args.num_classes)
+                self.classifier_imaging = nn.Linear(self.hidden_dim, args.num_classes)
+                self.classifier_tabular = nn.Linear(self.hidden_dim, args.num_classes)
         if args.checkpoint: 
             print(f'Checkpoint name: {args.checkpoint}')
             checkpoint = torch.load(args.checkpoint)
@@ -166,9 +172,14 @@ class DisCoAttentionBackbone(nn.Module):
                 x_st_enhance = self.augment(aug_modality_list=aug_modality_list, input_vec=x_st_enhance, modality="tabular", y=y)
                 x_c = self.augment(aug_modality_list=aug_modality_list, input_vec=x_c, modality="multimodal", y=y)
         
-        imaging_input = torch.cat([x_si_enhance, x_ai], dim=1)
-        tabular_input = torch.cat([x_st_enhance, x_at], dim=1)
-        multimodal_input = torch.cat([x_si_enhance, x_c, x_st_enhance], dim=1)
+        if not self.cut_classifier_input:
+            imaging_input = torch.cat([x_si_enhance, x_ai], dim=1)
+            tabular_input = torch.cat([x_st_enhance, x_at], dim=1)
+            multimodal_input = torch.cat([x_si_enhance, x_c, x_st_enhance], dim=1)
+        else:
+            imaging_input = x_si_enhance
+            tabular_input = x_st_enhance
+            multimodal_input = torch.cat([x_si_enhance, x_c, x_st_enhance], dim=1)
 
         if isinstance(self.augmentation_dict, DictConfig):
             if ({"modality", "when"} <= self.augmentation_dict.keys()) and (self.augmentation_dict["when"] == "classifier"):

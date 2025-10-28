@@ -116,6 +116,7 @@ class STiLModel_Consent(pl.LightningModule):
         self.w_t = nn.Parameter(torch.tensor(1.0 / 3))
         
         self.train_logit_consent = self.hparams.train_logit_consent
+        self.replace_ce_loss = self.hparams.replace_ce_loss
 
     def load_weights(self, module, module_name, state_dict):
         state_dict_module = {}
@@ -288,29 +289,15 @@ class STiLModel_Consent(pl.LightningModule):
                 self.log(f'multimodal.train.case2_t_ratio', torch.sum(case2_t)/len(case2_t), on_epoch=True, on_step=False, batch_size=B_l)
                 self.log(f'multimodal.train.case3_ratio', torch.sum(case3)/len(case3), on_epoch=True, on_step=False, batch_size=B_l)         
             
-            
-            # Weighted combination of logits
-            if self.train_logit_consent:
-                w = F.softmax(torch.stack([self.w_m, self.w_i, self.w_t]), dim=0)
-                p_prime = w[0] * y_hat_m + w[1] * y_hat_i + w[2] * y_hat_t
-                # Cross-entropy loss with ground truth labels
-                loss_p_prime = self.criterion_ce(p_prime, y)
-                self.log(f"multimodal.train.p_prime_loss", loss_p_prime, on_epoch=True, on_step=False, batch_size=B_l)
-            else:
-                loss_p_prime = 0.0
-            
-        # =============================  classification ======================================
-        # student labelled CE loss
-        loss_ce = self.criterion_ce(y_hat_m, y) + self.criterion_ce(y_hat_i, y) + self.criterion_ce(y_hat_t, y)
-        prob_m_l = torch.softmax(y_hat_m.detach(), dim=1)
-        self.log(f"multimodal.train.CEloss", loss_ce, on_epoch=True, on_step=False, batch_size=B_l)
-
-        #self.log(f'multimodal.train.threshold1_ratio', torch.sum(mask1)/len(mask1), on_epoch=True, on_step=False, batch_size=B_l)
-        #self.log(f'multimodal.train.case1_ratio', torch.sum(case1)/len(case1), on_epoch=True, on_step=False, batch_size=B_l)
-        #self.log(f'multimodal.train.case2_i_ratio', torch.sum(case2_i)/len(case2_i), on_epoch=True, on_step=False, batch_size=B_l)
-        #self.log(f'multimodal.train.case2_t_ratio', torch.sum(case2_t)/len(case2_t), on_epoch=True, on_step=False, batch_size=B_l)
-        #self.log(f'multimodal.train.case3_ratio', torch.sum(case3)/len(case3), on_epoch=True, on_step=False, batch_size=B_l)
-
+        # Weighted combination of logits
+        if self.train_logit_consent:
+            w = F.softmax(torch.stack([self.w_m, self.w_i, self.w_t]), dim=0)
+            p_prime = w[0] * y_hat_m + w[1] * y_hat_i + w[2] * y_hat_t
+            # Cross-entropy loss with ground truth labels
+            loss_p_prime = self.criterion_ce(p_prime, y)
+            self.log(f"multimodal.train.p_prime_loss", loss_p_prime, on_epoch=True, on_step=False, batch_size=B_l)
+        else:
+            loss_p_prime = 0.0
 
         # ============================= itc loss =======================================
         loss_itc, logits, labels = self.criterion_itc(feat_i, feat_t)
@@ -326,8 +313,17 @@ class STiLModel_Consent(pl.LightningModule):
         self.log(f"multimodal.train.CLUBloss_imaging_est", loss_club_i_est, on_epoch=True, on_step=False, batch_size=B_l)
         self.log(f"multimodal.train.CLUBloss_tabular", loss_club_t, on_epoch=True, on_step=False, batch_size=B_l)
         self.log(f"multimodal.train.CLUBloss_tabular_est", loss_club_t_est, on_epoch=True, on_step=False, batch_size=B_l)
+        
+        # =============================  classification ======================================
+        # student labelled CE loss
+        loss_ce = self.criterion_ce(y_hat_m, y) + self.criterion_ce(y_hat_i, y) + self.criterion_ce(y_hat_t, y)
+        prob_m_l = torch.softmax(y_hat_m.detach(), dim=1)
+        self.log(f"multimodal.train.CEloss", loss_ce, on_epoch=True, on_step=False, batch_size=B_l)
+        
+        if self.train_logit_consent and self.replace_ce_loss:
+            self.alpha = 0.0
 
-        loss = self.alpha*loss_ce + self.beta*loss_itc + self.gamma*(loss_clubi + loss_club_i_est + loss_club_t + loss_club_t_est) + self.epsilon*loss_p_prime
+        loss = self.alpha*loss_ce + self.epsilon*loss_p_prime + self.beta*loss_itc + self.gamma*(loss_clubi + loss_club_i_est + loss_club_t + loss_club_t_est)
         self.log(f"multimodal.train.loss", loss, on_epoch=True, on_step=False, batch_size=B_l)
             
         self.acc_train(prob_m_l, y)
@@ -474,28 +470,15 @@ class STiLModel_Consent(pl.LightningModule):
         """
         x,y = batch
         
-        y_hat, y_hat_i, y_hat_t, _, _, _, _, _ = self.model.forward(x)
-        #
-        #with torch.no_grad():
-        #    corr_matrix_m = torch.corrcoef(torch.stack((top1_m, y)))
-        #    correlation_m = corr_matrix_m[0, 1]
-        #    self.log(f"classifier.multimodal.logits.correlation", correlation_m, on_epoch=True, on_step=False, batch_size=B_l)
-        #    #
-        #    corr_matrix_i = torch.corrcoef(torch.stack((top1_i, y)))
-        #    correlation_i = corr_matrix_i[0, 1]
-        #    self.log(f"classifier.image.logits.correlation", correlation_i, on_epoch=True, on_step=False, batch_size=B_l)
-        #    #
-        #    corr_matrix_t = torch.corrcoef(torch.stack((top1_t, y)))
-        #    correlation_t = corr_matrix_t[0, 1]
-        #    self.log(f"classifier.tabular.logits.correlation", correlation_t, on_epoch=True, on_step=False, batch_size=B_l)            
+        y_hat, y_hat_i, y_hat_t, _, _, _, _, _ = self.model.forward(x)     
 
-        y_hat = torch.softmax(y_hat.detach(), dim=1)
-        y_hat_i = torch.softmax(y_hat_i.detach(), dim=1)
-        y_hat_t = torch.softmax(y_hat_t.detach(), dim=1)
+        y_hat_s = torch.softmax(y_hat.detach(), dim=1)
+        y_hat_i_s = torch.softmax(y_hat_i.detach(), dim=1)
+        y_hat_t_s = torch.softmax(y_hat_t.detach(), dim=1)
         
-        entropy_m = -torch.sum(y_hat * torch.log(y_hat + 1e-9), dim=1)
-        entropy_i = -torch.sum(y_hat_i * torch.log(y_hat_i + 1e-9), dim=1)
-        entropy_t = -torch.sum(y_hat_t * torch.log(y_hat_t + 1e-9), dim=1)
+        entropy_m = -torch.sum(y_hat_s * torch.log(y_hat_s + 1e-9), dim=1)
+        entropy_i = -torch.sum(y_hat_i_s * torch.log(y_hat_i_s + 1e-9), dim=1)
+        entropy_t = -torch.sum(y_hat_t_s * torch.log(y_hat_t_s + 1e-9), dim=1)
         
         self.log(f'multimodal.test.classifier.entropy', entropy_m, on_epoch=True, on_step=False, batch_size=x[0].size()[0])
         self.log(f'image.test.classifier.entropy', entropy_i, on_epoch=True, on_step=False, batch_size=x[0].size()[0])
@@ -503,6 +486,17 @@ class STiLModel_Consent(pl.LightningModule):
         
         if self.hparams.num_classes==2:
             y_hat = y_hat[:,1]
+            
+        if self.train_logit_consent:
+            print(self.w_m)
+            print(self.w_i)
+            print(self.w_t)
+            p_prime = self.w_m * y_hat + self.w_i * y_hat_i + self.w_t * y_hat_t
+            print(p_prime)
+            y_hat = torch.softmax(p_prime.detach(), dim=1)
+            print(y_hat)
+        else:
+            y_hat = torch.softmax(y_hat.detach(), dim=1)
 
         self.acc_test(y_hat, y)
         self.auc_test(y_hat, y)
@@ -541,7 +535,10 @@ class STiLModel_Consent(pl.LightningModule):
             {'params': self.projector_tabular.parameters()},
             {'params': self.projector_multimodal.parameters()},
             {'params': self.CLUB_imaging.parameters()},
-            {'params': self.CLUB_tabular.parameters()}
+            {'params': self.CLUB_tabular.parameters()},
+            {'params': self.w_m},
+            {'params': self.w_i},
+            {'params': self.w_t},
         ], lr=self.hparams.lr_eval, weight_decay=self.hparams.weight_decay_eval)
         scheduler = self.initialize_scheduler(optimizer)
         return (

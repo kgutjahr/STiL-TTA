@@ -30,7 +30,9 @@ data_base_bio: /vol/biomedic3/sd1523/data/mm/DVM/features
 data_base_hpc: /rds/general/user/sd1523/home/data/mm/DVM/features
 num_workers: 10
 sweep: False
-train_logit_consent: False
+train_logit_consent: True
+cut_classifier_input: False
+replace_ce_loss: True
 
 algorithm_name: STiL_train_consent
 pretrained_model: TIP
@@ -159,7 +161,7 @@ drop_rate: 0.0
 alpha: 0.2
 beta: 3.0
 gamma: 0.5
-epsilon: 0.2
+epsilon: 2.0
 rate_pt: 1.0  # prototype clustering loss
 rate_uce: 0.2
 unlabelled_ratio: 7
