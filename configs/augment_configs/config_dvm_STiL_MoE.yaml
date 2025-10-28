@@ -30,7 +30,9 @@ data_base_bio: /vol/biomedic3/sd1523/data/mm/DVM/features
 data_base_hpc: /rds/general/user/sd1523/home/data/mm/DVM/features
 num_workers: 10
 sweep: False
-train_logit_consent: True
+train_logit_consent: False
+
+MoE_k: 1
 
 algorithm_name: STiL_MoE
 pretrained_model: TIP
