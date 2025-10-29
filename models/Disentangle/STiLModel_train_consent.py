@@ -20,7 +20,7 @@ from pl_bolts.optimizers.lr_scheduler import LinearWarmupCosineAnnealingLR
 
 # TODO: Change the path to your own project directory if you want to run this file alone for debugging 
 sys.path.append('/home/kgutjahr/STiL-TTA')
-from models.Disentangle.utils.STiLModel_backbone import DisCoAttentionBackbone
+from models.Disentangle.utils.STiLModel_backbone_train_consent import DisCoAttentionBackbone
 from utils.clip_loss import CLIPLoss
 from utils.prototype_loss import PrototypeLoss
 from utils.AugmentSummarizer import AugmentSummarizer
@@ -399,9 +399,22 @@ class STiLModel_Consent(pl.LightningModule):
         # =============================  classification ======================================
         loss_ce = self.criterion_ce(y_hat, y)
         self.log(f"multimodal.val.CEloss", loss_ce, on_epoch=True, on_step=False)
+        
+        # Weighted combination of logits
+        if self.train_logit_consent:
+            w = F.softmax(torch.stack([self.w_m, self.w_i, self.w_t]), dim=0)
+            p_prime = w[0] * y_hat + w[1] * y_i_hat + w[2] * y_t_hat
+            # Cross-entropy loss with ground truth labels
+            loss_p_prime = self.criterion_ce(p_prime, y)
+            self.log(f"multimodal.train.p_prime_loss", loss_p_prime, on_epoch=True, on_step=False, batch_size=B_l)
+        else:
+            loss_p_prime = 0.0
+        
+        if self.train_logit_consent and self.replace_ce_loss:
+            self.alpha = 0.0
 
         # loss = self.alpha*loss_ce + self.beta*loss_itc
-        loss = self.alpha*loss_ce + self.beta*loss_itc + self.gamma*(loss_club_i + loss_club_i_est + loss_club_t + loss_club_t_est)
+        loss = self.alpha*loss_ce + self.beta*loss_itc + self.gamma*(loss_club_i + loss_club_i_est + loss_club_t + loss_club_t_est) + self.epsilon*loss_p_prime
         self.log(f"multimodal.val.loss", loss, on_epoch=True, on_step=False)
 
         # task accuracy
@@ -488,13 +501,8 @@ class STiLModel_Consent(pl.LightningModule):
             y_hat = y_hat[:,1]
             
         if self.train_logit_consent:
-            print(self.w_m)
-            print(self.w_i)
-            print(self.w_t)
             p_prime = self.w_m * y_hat + self.w_i * y_hat_i + self.w_t * y_hat_t
-            print(p_prime)
             y_hat = torch.softmax(p_prime.detach(), dim=1)
-            print(y_hat)
         else:
             y_hat = torch.softmax(y_hat.detach(), dim=1)
 

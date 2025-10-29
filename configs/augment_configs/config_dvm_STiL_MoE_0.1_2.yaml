@@ -30,11 +30,13 @@ data_base_bio: /vol/biomedic3/sd1523/data/mm/DVM/features
 data_base_hpc: /rds/general/user/sd1523/home/data/mm/DVM/features
 num_workers: 10
 sweep: False
-train_logit_consent: True
-cut_classifier_input: True
-replace_ce_loss: False
 
-algorithm_name: STiL_train_consent
+# MoE
+MoE_k: 2
+omega: 0.1
+cut_classifier_input: True
+
+algorithm_name: STiL_MoE
 pretrained_model: TIP
 strategy: tip
 dataset_name: dvm
@@ -74,7 +76,7 @@ pretrained_imaging_strategy: trainable
 
 multiple_lr: False
 
-batch_size: 32
+batch_size: 512
 # biobank
 # lr: 3.e-3
 # lr_eval: 1.e-3
@@ -161,7 +163,6 @@ drop_rate: 0.0
 alpha: 0.2
 beta: 3.0
 gamma: 0.5
-epsilon: 2.0
 rate_pt: 1.0  # prototype clustering loss
 rate_uce: 0.2
 unlabelled_ratio: 7

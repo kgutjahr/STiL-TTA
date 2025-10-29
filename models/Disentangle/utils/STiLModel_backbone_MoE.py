@@ -54,6 +54,7 @@ class DisCoAttentionBackbone(nn.Module):
         self.pooled_dim = args.embedding_dim
         self.hidden_dim = args.multimodal_embedding_dim
         self.augmentation_dict = args.latent_augmentation
+        self.cut_classifier_input = args.cut_classifier_input
         
         self.aug_summarizer = aug_summarizer
 
@@ -73,11 +74,17 @@ class DisCoAttentionBackbone(nn.Module):
         if args.pretrain == True and args.checkpoint is None:
             print('Pretrain model does not have aggregation and classifier')
         else:
-            self.classifier_multimodal = nn.Linear(self.hidden_dim*3, args.num_classes)
-            self.classifier_imaging = nn.Linear(self.hidden_dim*2, args.num_classes)
-            self.classifier_tabular = nn.Linear(self.hidden_dim*2, args.num_classes)
+            if self.cut_classifier_input:
+                self.classifier_gate = nn.Linear(self.hidden_dim*3, 3)
+                self.classifier_multimodal = nn.Linear(self.hidden_dim*3, args.num_classes)
+                self.classifier_imaging = nn.Linear(self.hidden_dim, args.num_classes)
+                self.classifier_tabular = nn.Linear(self.hidden_dim, args.num_classes)
+            else:
+                self.classifier_gate = nn.Linear(self.hidden_dim*5, 3)
+                self.classifier_multimodal = nn.Linear(self.hidden_dim*3, args.num_classes)
+                self.classifier_imaging = nn.Linear(self.hidden_dim*2, args.num_classes)
+                self.classifier_tabular = nn.Linear(self.hidden_dim*2, args.num_classes)    
             # MoE Classifier Gate
-            self.classifier_gate = nn.Linear(self.hidden_dim*7, 3)
             
         if args.checkpoint: 
             print(f'Checkpoint name: {args.checkpoint}')
@@ -187,9 +194,14 @@ class DisCoAttentionBackbone(nn.Module):
                 x_st_enhance = self.augment(aug_modality_list=aug_modality_list, input_vec=x_st_enhance, modality="tabular", y=y)
                 x_c = self.augment(aug_modality_list=aug_modality_list, input_vec=x_c, modality="multimodal", y=y)
         
-        imaging_input = torch.cat([x_si_enhance, x_ai], dim=1)
-        tabular_input = torch.cat([x_st_enhance, x_at], dim=1)
-        multimodal_input = torch.cat([x_si_enhance, x_c, x_st_enhance], dim=1)
+        if self.cut_classifier_input:
+            imaging_input = x_si_enhance
+            tabular_input = x_st_enhance
+            multimodal_input = torch.cat([x_si_enhance, x_c, x_st_enhance], dim=1)            
+        else:
+            imaging_input = torch.cat([x_si_enhance, x_ai], dim=1)
+            tabular_input = torch.cat([x_st_enhance, x_at], dim=1)
+            multimodal_input = torch.cat([x_si_enhance, x_c, x_st_enhance], dim=1)
 
         if isinstance(self.augmentation_dict, DictConfig):
             if ({"modality", "when"} <= self.augmentation_dict.keys()) and (self.augmentation_dict["when"] == "classifier"):
@@ -211,25 +223,53 @@ class DisCoAttentionBackbone(nn.Module):
                 #x_c = self.augment(aug_modality_list=aug_modality_list, input_vec=x_c, modality="multimodal", y=y)
                 #multimodal_input = torch.cat([x_si_enhance, x_c, x_st_enhance], dim=1)
 
-        gate_input = torch.cat([imaging_input, multimodal_input, tabular_input], dim=1)
-        MoE_f, MoE_k_idx = self.run_gate(x=gate_input)
-        print(MoE_f)
-        print(MoE_k_idx)
-        exit()
+        if self.cut_classifier_input:
+            gate_input = multimodal_input
+        else:
+            gate_input = torch.cat([x_ai, multimodal_input, x_at], dim=1)
+
+        MoE_w, _ = self.run_gate(x=gate_input)
 
         out_m = self.classifier_multimodal(multimodal_input)
         out_i = self.classifier_imaging(imaging_input)
         out_t = self.classifier_tabular(tabular_input)
-        return out_m, out_i, out_t, x_si_enhance, torch.mean(x_si,dim=1), x_ai, x_st_enhance, torch.mean(x_st,dim=1), x_at, x_c
+        
+        # Stack classifier outputs: shape [b, 3, num_classes]
+        logits = torch.stack([out_m, out_i, out_t], dim=1)
+        
+        # weights: [b, 3] → [b, 3, 1] for broadcasting
+        combined_logits = torch.sum(MoE_w.unsqueeze(-1) * logits, dim=1)
+        return out_m, out_i, out_t, x_si_enhance, torch.mean(x_si,dim=1), x_ai, x_st_enhance, torch.mean(x_st,dim=1), x_at, x_c, combined_logits, MoE_w
     
 
     def forward(self, x: torch.Tensor, visualize=False) -> torch.Tensor:
         x_si, x_ai, x_st, x_at = self.forward_encoding_feature(x)
         x_si_enhance, x_ai, x_st_enhance, x_at, x_c = self.forward_multimodal_feature(x_si, x_ai, x_st, x_at)
-        out_m = self.classifier_multimodal(torch.cat([x_si_enhance, x_c, x_st_enhance], dim=1))
-        out_i = self.classifier_imaging(torch.cat([x_si_enhance, x_ai], dim=1))
-        out_t = self.classifier_tabular(torch.cat([x_st_enhance, x_at], dim=1))
-        return out_m, out_i, out_t, x_si_enhance, x_ai, x_st_enhance, x_at, x_c
+        
+        if self.cut_classifier_input:
+            imaging_input = x_si_enhance
+            tabular_input = x_st_enhance
+            multimodal_input = torch.cat([x_si_enhance, x_c, x_st_enhance], dim=1)            
+            gate_input = multimodal_input
+        else:
+            imaging_input = torch.cat([x_si_enhance, x_ai], dim=1)
+            tabular_input = torch.cat([x_st_enhance, x_at], dim=1)
+            multimodal_input = torch.cat([x_si_enhance, x_c, x_st_enhance], dim=1)
+            gate_input = torch.cat([x_ai, multimodal_input, x_at], dim=1)
+        
+        MoE_w, _ = self.run_gate(x=gate_input)
+        
+        out_m = self.classifier_multimodal(multimodal_input)
+        out_i = self.classifier_imaging(imaging_input)
+        out_t = self.classifier_tabular(tabular_input)
+        
+        # Stack classifier outputs: shape [b, 3, num_classes]
+        logits = torch.stack([out_m, out_i, out_t], dim=1)
+        
+        # weights: [b, 3] → [b, 3, 1] for broadcasting
+        combined_logits = torch.sum(MoE_w.unsqueeze(-1) * logits, dim=1)
+        
+        return out_m, out_i, out_t, x_si_enhance, x_ai, x_st_enhance, x_at, x_c, combined_logits, MoE_w
 
     def run_augmentations(self, x: torch.Tensor, y: torch.Tensor, augment_dict: dict, repeat_idx: list = []) -> torch.Tensor:
         if len(augment_dict) == 0:

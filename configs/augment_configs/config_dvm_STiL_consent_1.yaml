@@ -31,8 +31,8 @@ data_base_hpc: /rds/general/user/sd1523/home/data/mm/DVM/features
 num_workers: 10
 sweep: False
 train_logit_consent: True
-cut_classifier_input: False
-replace_ce_loss: True
+cut_classifier_input: True
+replace_ce_loss: False
 
 algorithm_name: STiL_train_consent
 pretrained_model: TIP

@@ -44,7 +44,7 @@ class STiLModel_MoE(pl.LightningModule):
         self.alpha = self.hparams.alpha
         self.beta = self.hparams.beta
         self.gamma = self.hparams.gamma
-        self.epsilon = self.hparams.epsilon
+        self.omega = self.hparams.omega
         self.rate_uce = self.hparams.rate_uce
         self.th1 = self.hparams.th1
         self.th2 = self.hparams.th2
@@ -133,12 +133,14 @@ class STiLModel_MoE(pl.LightningModule):
         
         self.acc_train = torchmetrics.Accuracy(task=task, num_classes=self.hparams.num_classes)
         self.acc_val = torchmetrics.Accuracy(task=task, num_classes=self.hparams.num_classes)
+        self.acc_val_multimodal = torchmetrics.Accuracy(task=task, num_classes=self.hparams.num_classes)
         self.acc_val_imaging = torchmetrics.Accuracy(task=task, num_classes=self.hparams.num_classes)
         self.acc_val_tabular = torchmetrics.Accuracy(task=task, num_classes=self.hparams.num_classes)
         self.acc_test = torchmetrics.Accuracy(task=task, num_classes=self.hparams.num_classes)
 
         self.auc_train = torchmetrics.AUROC(task=task, num_classes=self.hparams.num_classes)
         self.auc_val = torchmetrics.AUROC(task=task, num_classes=self.hparams.num_classes)
+        self.auc_val_multimodal = torchmetrics.AUROC(task=task, num_classes=self.hparams.num_classes)
         self.auc_val_imaging = torchmetrics.AUROC(task=task, num_classes=self.hparams.num_classes)
         self.auc_val_tabular = torchmetrics.AUROC(task=task, num_classes=self.hparams.num_classes)
         self.auc_test = torchmetrics.AUROC(task=task, num_classes=self.hparams.num_classes)
@@ -235,7 +237,7 @@ class STiLModel_MoE(pl.LightningModule):
         im_views, tab_views = x
         B_l = len(y)
         # use augmented image and tabular views
-        y_hat_m, y_hat_i, y_hat_t, x_si_enhance, x_si, x_ai, x_st_enhance, x_st, x_at, x_c = self.model.forward_all(x=[im_views, tab_views], y=y)
+        y_hat_m, y_hat_i, y_hat_t, x_si_enhance, x_si, x_ai, x_st_enhance, x_st, x_at, x_c, y_MoE, MoE_weights = self.model.forward_all(x=[im_views, tab_views], y=y)
 
         feat_m = torch.cat((x_si_enhance, x_c, x_st_enhance), dim=1)
         feat_m, feat_i, feat_t = self.project_3features(feat_m, x_ai, x_at)
@@ -246,7 +248,7 @@ class STiLModel_MoE(pl.LightningModule):
         with torch.no_grad():
             if self.use_ema:
                 self.momentum_update_ema()
-                y_hat_m_e, y_hat_i_e, y_hat_t_e, x_si_enhance_e, _, _, x_st_enhance_e, _, _, x_c_e = self.ema.forward_all(x=[im_views, tab_views], y=y)
+                y_hat_m_e, y_hat_i_e, y_hat_t_e, x_si_enhance_e, _, _, x_st_enhance_e, _, _, x_c_e, _, _ = self.ema.forward_all(x=[im_views, tab_views], y=y)
                 feat_m_e = torch.cat((x_si_enhance_e, x_c_e, x_st_enhance_e), dim=1)
                 feat_m_e, _, _ = self.project_3features(feat_m_e, None, None)
             else:
@@ -254,20 +256,26 @@ class STiLModel_MoE(pl.LightningModule):
                 feat_m_e = feat_m
             feat_m_e = feat_m_e.detach()
         #    # case identification. case1: all the same, case2: two the same, case3: else
-            prob_m_e, prob_i_e, prob_t_e = torch.softmax(y_hat_m_e.detach(), dim=1), torch.softmax(y_hat_i_e.detach(), dim=1), torch.softmax(y_hat_t_e.detach(), dim=1)
+            prob_MoE, prob_m_e, prob_i_e, prob_t_e = torch.softmax(y_MoE.detach(), dim=1), torch.softmax(y_hat_m_e.detach(), dim=1), torch.softmax(y_hat_i_e.detach(), dim=1), torch.softmax(y_hat_t_e.detach(), dim=1)
             top1_m, top1_i, top1_t = torch.argmax(prob_m_e, dim=1), torch.argmax(prob_i_e, dim=1), torch.argmax(prob_t_e, dim=1)
             
             self.acc_classifier_multi(top1_m, y)
             self.acc_classifier_image(top1_i, y)
             self.acc_classifier_tabular(top1_t, y)
             
+            entropy_MoE = -torch.sum(prob_MoE * torch.log(prob_m_e + 1e-9), dim=1)
             entropy_m = -torch.sum(prob_m_e * torch.log(prob_m_e + 1e-9), dim=1)
             entropy_i = -torch.sum(prob_i_e * torch.log(prob_i_e + 1e-9), dim=1)
             entropy_t = -torch.sum(prob_t_e * torch.log(prob_t_e + 1e-9), dim=1)
             
+            self.log(f'MoE.classifier.entropy', entropy_MoE, on_epoch=True, on_step=False, batch_size=B_l)
             self.log(f'multimodal.classifier.entropy', entropy_m, on_epoch=True, on_step=False, batch_size=B_l)
             self.log(f'image.classifier.entropy', entropy_i, on_epoch=True, on_step=False, batch_size=B_l)
-            self.log(f'tabular.classifier.entropy', entropy_t, on_epoch=True, on_step=False, batch_size=B_l) 
+            self.log(f'tabular.classifier.entropy', entropy_t, on_epoch=True, on_step=False, batch_size=B_l)
+            
+            self.log(f'MoE.weight0', MoE_weights[0], on_epoch=True, on_step=False, batch_size=B_l)
+            self.log(f'MoE.weight1', MoE_weights[1], on_epoch=True, on_step=False, batch_size=B_l)
+            self.log(f'MoE.weight2', MoE_weights[2], on_epoch=True, on_step=False, batch_size=B_l)
             
             with torch.no_grad():
                 
@@ -285,7 +293,6 @@ class STiLModel_MoE(pl.LightningModule):
         # =============================  classification ======================================
         # student labelled CE loss
         loss_ce = self.criterion_ce(y_hat_m, y) + self.criterion_ce(y_hat_i, y) + self.criterion_ce(y_hat_t, y)
-        prob_m_l = torch.softmax(y_hat_m.detach(), dim=1)
         self.log(f"multimodal.train.CEloss", loss_ce, on_epoch=True, on_step=False, batch_size=B_l)
 
 
@@ -304,9 +311,17 @@ class STiLModel_MoE(pl.LightningModule):
         self.log(f"multimodal.train.CLUBloss_tabular", loss_club_t, on_epoch=True, on_step=False, batch_size=B_l)
         self.log(f"multimodal.train.CLUBloss_tabular_est", loss_club_t_est, on_epoch=True, on_step=False, batch_size=B_l)
 
-        loss = self.alpha*loss_ce + self.beta*loss_itc + self.gamma*(loss_clubi + loss_club_i_est + loss_club_t + loss_club_t_est) + self.epsilon*loss_p_prime
+
+        # ==================================== MoE Load Balancing Loss ===================================
+        MoE_importance = torch.sum(MoE_weights, dim=0)
+        MoE_CV = MoE_importance.std() / MoE_importance.mean()
+        loss_load_balancing = torch.pow(MoE_CV, 2)
+        self.log(f"multimodal.train.MoEloss", loss_load_balancing, on_epoch=True, on_step=False, batch_size=B_l)
+
+        loss = self.alpha*loss_ce + self.beta*loss_itc + self.gamma*(loss_clubi + loss_club_i_est + loss_club_t + loss_club_t_est) + self.omega*loss_load_balancing
         self.log(f"multimodal.train.loss", loss, on_epoch=True, on_step=False, batch_size=B_l)
             
+        prob_m_l = torch.softmax(y_MoE.detach(), dim=1)
         self.acc_train(prob_m_l, y)
         self.auc_train(prob_m_l, y)
         
@@ -359,7 +374,7 @@ class STiLModel_MoE(pl.LightningModule):
         # im_views, tab_views, y, original_im, _ = batch
         x, y = batch
         # use augmented image and tabular views
-        y_hat, y_i_hat, y_t_hat, x_si_enhance, x_si, x_ai, x_st_enhance, x_st, x_at, x_c = self.model.forward_all(x=x, y=y)
+        y_m_hat, y_i_hat, y_t_hat, x_si_enhance, x_si, x_ai, x_st_enhance, x_st, x_at, x_c, y_MoE, _ = self.model.forward_all(x=x, y=y)
         feat_m = torch.cat((x_si_enhance, x_c, x_st_enhance), dim=1)
         feat_m, feat_i, feat_t = self.project_3features(feat_m, x_ai, x_at)
         # =============================  itc ======================================
@@ -378,7 +393,7 @@ class STiLModel_MoE(pl.LightningModule):
         self.log(f"multimodal.val.CLUBloss_tabular", loss_club_t, on_epoch=True, on_step=False)
         self.log(f"multimodal.val.CLUBloss_tabular_est", loss_club_t_est, on_epoch=True, on_step=False)
         # =============================  classification ======================================
-        loss_ce = self.criterion_ce(y_hat, y)
+        loss_ce = self.criterion_ce(y_MoE, y)
         self.log(f"multimodal.val.CEloss", loss_ce, on_epoch=True, on_step=False)
 
         # loss = self.alpha*loss_ce + self.beta*loss_itc
@@ -386,15 +401,21 @@ class STiLModel_MoE(pl.LightningModule):
         self.log(f"multimodal.val.loss", loss, on_epoch=True, on_step=False)
 
         # task accuracy
-        y_hat = torch.softmax(y_hat.detach(), dim=1)
+        y_MoE_hat = torch.softmax(y_MoE.detach(), dim=1)
+        y_m_hat = torch.softmax(y_m_hat.detach(), dim=1)
         y_i_hat = torch.softmax(y_i_hat.detach(), dim=1)
         y_t_hat = torch.softmax(y_t_hat.detach(), dim=1)
         if self.hparams.num_classes==2:
-            y_hat = y_hat[:,1]
+            y_m_hat = y_m_hat[:,1]
             y_i_hat = y_i_hat[:,1]
             y_t_hat = y_t_hat[:,1]
-        self.acc_val(y_hat, y)
-        self.auc_val(y_hat, y)
+            
+            
+        self.acc_val(y_MoE_hat, y)
+        self.auc_val(y_MoE_hat, y)
+        
+        self.acc_val_multimodal(y_m_hat, y)
+        self.auc_val_multimodal(y_m_hat, y)
         self.acc_val_imaging(y_i_hat, y)
         self.auc_val_imaging(y_i_hat, y)
         self.acc_val_tabular(y_t_hat, y)
@@ -413,6 +434,10 @@ class STiLModel_MoE(pl.LightningModule):
 
         epoch_acc_val = self.acc_val.compute()
         epoch_auc_val = self.auc_val.compute()
+        
+        epoch_acc_val_multimodal = self.acc_val_multimodal.compute()
+        epoch_auc_val_multimodal = self.auc_val_multimodal.compute()
+        
         epoch_acc_val_imaging = self.acc_val_imaging.compute()
         epoch_auc_val_imaging = self.auc_val_imaging.compute()
         epoch_acc_val_tabular = self.acc_val_tabular.compute()
@@ -420,12 +445,16 @@ class STiLModel_MoE(pl.LightningModule):
 
         self.log('eval.val.acc', epoch_acc_val, on_epoch=True, on_step=False, metric_attribute=self.acc_val)
         self.log('eval.val.auc', epoch_auc_val, on_epoch=True, on_step=False, metric_attribute=self.auc_val)
+        
+        self.log('eval.val.acc_multimodal', epoch_acc_val_multimodal, on_epoch=True, on_step=False, metric_attribute=self.acc_val_multimodal)
+        self.log('eval.val.auc_multimodal', epoch_auc_val_multimodal, on_epoch=True, on_step=False, metric_attribute=self.auc_val_multimodal)
+        
         self.log('eval.val.acc_imaging', epoch_acc_val_imaging, on_epoch=True, on_step=False, metric_attribute=self.acc_val_imaging)
         self.log('eval.val.auc_imaging', epoch_auc_val_imaging, on_epoch=True, on_step=False, metric_attribute=self.auc_val_imaging)
         self.log('eval.val.acc_tabular', epoch_acc_val_tabular, on_epoch=True, on_step=False, metric_attribute=self.acc_val_tabular)
         self.log('eval.val.auc_tabular', epoch_auc_val_tabular, on_epoch=True, on_step=False, metric_attribute=self.auc_val_tabular)
 
-        self.print(f'Epoch {self.current_epoch}: val.acc: {epoch_acc_val}, val.auc: {epoch_auc_val}, val.acc_imaging: {epoch_acc_val_imaging}, val.auc_imaging: {epoch_auc_val_imaging}, val.acc_tabular: {epoch_acc_val_tabular}, val.auc_tabular: {epoch_auc_val_tabular}')
+        self.print(f'Epoch {self.current_epoch}: val.acc: {epoch_acc_val}, val.auc: {epoch_auc_val}, val.acc_multimodal: {epoch_acc_val_multimodal}, val.auc_multimodal: {epoch_auc_val_multimodal}, val.acc_imaging: {epoch_acc_val_imaging}, val.auc_imaging: {epoch_auc_val_imaging}, val.acc_tabular: {epoch_acc_val_tabular}, val.auc_tabular: {epoch_auc_val_tabular}')
       
         if self.hparams.target == 'dvm':
             if epoch_acc_val > self.best_val_score:
@@ -438,6 +467,10 @@ class STiLModel_MoE(pl.LightningModule):
 
         self.acc_val.reset()
         self.auc_val.reset()
+        
+        self.acc_val_multimodal.reset()
+        self.auc_val_multimodal.reset()
+        
         self.acc_val_imaging.reset()
         self.auc_val_imaging.reset()
         self.acc_val_tabular.reset()
@@ -451,13 +484,14 @@ class STiLModel_MoE(pl.LightningModule):
         """
         x,y = batch
         
-        y_hat, y_hat_i, y_hat_t, _, _, _, _, _ = self.model.forward(x)            
+        y_hat_m, y_hat_i, y_hat_t, _, _, _, _, _, y_MoE, _ = self.model.forward(x)         
 
-        y_hat = torch.softmax(y_hat.detach(), dim=1)
+        y_MoE = torch.softmax(y_MoE.detach(), dim=1)
+        y_hat_m = torch.softmax(y_hat_m.detach(), dim=1)
         y_hat_i = torch.softmax(y_hat_i.detach(), dim=1)
         y_hat_t = torch.softmax(y_hat_t.detach(), dim=1)
         
-        entropy_m = -torch.sum(y_hat * torch.log(y_hat + 1e-9), dim=1)
+        entropy_m = -torch.sum(y_hat_m * torch.log(y_hat_m + 1e-9), dim=1)
         entropy_i = -torch.sum(y_hat_i * torch.log(y_hat_i + 1e-9), dim=1)
         entropy_t = -torch.sum(y_hat_t * torch.log(y_hat_t + 1e-9), dim=1)
         
@@ -466,10 +500,10 @@ class STiLModel_MoE(pl.LightningModule):
         self.log(f'tabular.test.classifier.entropy', entropy_t, on_epoch=True, on_step=False, batch_size=x[0].size()[0])
         
         if self.hparams.num_classes==2:
-            y_hat = y_hat[:,1]
+            y_MoE = y_MoE[:,1]
 
-        self.acc_test(y_hat, y)
-        self.auc_test(y_hat, y)
+        self.acc_test(y_MoE, y)
+        self.auc_test(y_MoE, y)
 
     def test_epoch_end(self, _) -> None:
         """

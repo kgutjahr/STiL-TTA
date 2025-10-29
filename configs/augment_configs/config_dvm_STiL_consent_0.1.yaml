@@ -33,8 +33,8 @@ sweep: False
 
 # consent
 train_logit_consent: True
-cut_classifier_input: False
-replace_ce_loss: True
+cut_classifier_input: True
+replace_ce_loss: False
 
 algorithm_name: STiL_train_consent
 pretrained_model: TIP

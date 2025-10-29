@@ -210,9 +210,19 @@ class DisCoAttentionBackbone(nn.Module):
     def forward(self, x: torch.Tensor, visualize=False) -> torch.Tensor:
         x_si, x_ai, x_st, x_at = self.forward_encoding_feature(x)
         x_si_enhance, x_ai, x_st_enhance, x_at, x_c = self.forward_multimodal_feature(x_si, x_ai, x_st, x_at)
-        out_m = self.classifier_multimodal(torch.cat([x_si_enhance, x_c, x_st_enhance], dim=1))
-        out_i = self.classifier_imaging(torch.cat([x_si_enhance, x_ai], dim=1))
-        out_t = self.classifier_tabular(torch.cat([x_st_enhance, x_at], dim=1))
+        
+        if not self.cut_classifier_input:
+            imaging_input = torch.cat([x_si_enhance, x_ai], dim=1)
+            tabular_input = torch.cat([x_st_enhance, x_at], dim=1)
+            multimodal_input = torch.cat([x_si_enhance, x_c, x_st_enhance], dim=1)
+        else:
+            imaging_input = x_si_enhance
+            tabular_input = x_st_enhance
+            multimodal_input = torch.cat([x_si_enhance, x_c, x_st_enhance], dim=1)
+        
+        out_m = self.classifier_multimodal(multimodal_input)
+        out_i = self.classifier_imaging(imaging_input)
+        out_t = self.classifier_tabular(tabular_input)
         return out_m, out_i, out_t, x_si_enhance, x_ai, x_st_enhance, x_at, x_c
 
     def run_augmentations(self, x: torch.Tensor, y: torch.Tensor, augment_dict: dict, repeat_idx: list = []) -> torch.Tensor:

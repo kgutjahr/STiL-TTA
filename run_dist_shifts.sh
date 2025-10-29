@@ -34,11 +34,11 @@ run_experiment () {
 #
 
 # Experiment
-CONFIGS=("config_dvm_STiL_consent_0" "config_dvm_STiL_consent_0.1" "config_dvm_STiL_consent_0.5" "config_dvm_STiL_consent_1" "config_dvm_STiL_consent_2" "config_dvm_STiL_consent_3" "config_dvm_STiL_consent_4")
+CONFIGS=("config_dvm_STiL_MoE_0.1_1" "config_dvm_STiL_MoE_0.5_1" "config_dvm_STiL_MoE_1_1" "config_dvm_STiL_MoE_2_1" "config_dvm_STiL_MoE_3_1" "config_dvm_STiL_MoE_4_1")
 DATASETS=("normal" "weight" "age" "TE")
 DEVICE=1
 REPEAT=10
-RESULT_DIR="ADNI/train_consent_loss"
+RESULT_DIR="ADNI/MoE_1_cut"
 
 PRETRAIN=(FALSE)
 run_experiment CONFIGS[@] DATASETS[@] PRETRAIN[@] $DEVICE $REPEAT $RESULT_DIR
