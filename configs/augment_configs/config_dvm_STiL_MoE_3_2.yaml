@@ -76,7 +76,7 @@ pretrained_imaging_strategy: trainable
 
 multiple_lr: False
 
-batch_size: 512
+batch_size: 32
 # biobank
 # lr: 3.e-3
 # lr_eval: 1.e-3

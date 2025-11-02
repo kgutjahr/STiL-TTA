@@ -216,7 +216,7 @@ def evaluate(hparams, wandb_logger):
     if hparams.use_wandb:
         callbacks.append(LearningRateMonitor(logging_interval='epoch'))
 
-    trainer = Trainer.from_argparse_args(hparams, accelerator=trainer_accelerator, gpus=cuda_visible_devices, callbacks=callbacks, logger=wandb_logger, max_epochs=hparams.max_epochs, check_val_every_n_epoch=hparams.check_val_every_n_epoch, val_check_interval=hparams.val_check_interval, limit_train_batches=hparams.limit_train_batches, limit_val_batches=hparams.limit_val_batches, limit_test_batches=hparams.limit_test_batches)
+    trainer = Trainer.from_argparse_args(hparams, accelerator=trainer_accelerator, gpus=cuda_visible_devices, callbacks=callbacks, logger=wandb_logger, max_epochs=hparams.max_epochs, check_val_every_n_epoch=hparams.check_val_every_n_epoch, val_check_interval=hparams.val_check_interval, limit_train_batches=hparams.limit_train_batches, limit_val_batches=hparams.limit_val_batches, limit_test_batches=hparams.limit_test_batches, detect_anomaly=True)
     trainer.fit(model, train_loader, val_loader)
     eval_df = pd.DataFrame(trainer.callback_metrics, index=[0])
     eval_df.to_csv(join(logdir, 'eval_results.csv'), index=False)

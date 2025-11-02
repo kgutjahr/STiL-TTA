@@ -14,6 +14,7 @@ import pytorch_lightning as pl
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.distributed as dist
+from sklearn.metrics import balanced_accuracy_score
 
 from lightly.models.modules import SimCLRProjectionHead
 from pl_bolts.optimizers.lr_scheduler import LinearWarmupCosineAnnealingLR
@@ -140,15 +141,23 @@ class STiLModel_Consent(pl.LightningModule):
         
         self.acc_train = torchmetrics.Accuracy(task=task, num_classes=self.hparams.num_classes)
         self.acc_val = torchmetrics.Accuracy(task=task, num_classes=self.hparams.num_classes)
+        self.acc_val_multimodal = torchmetrics.Accuracy(task=task, num_classes=self.hparams.num_classes)
         self.acc_val_imaging = torchmetrics.Accuracy(task=task, num_classes=self.hparams.num_classes)
         self.acc_val_tabular = torchmetrics.Accuracy(task=task, num_classes=self.hparams.num_classes)
         self.acc_test = torchmetrics.Accuracy(task=task, num_classes=self.hparams.num_classes)
+        self.acc_test_multimodal = torchmetrics.Accuracy(task=task, num_classes=self.hparams.num_classes)
+        self.acc_test_imaging = torchmetrics.Accuracy(task=task, num_classes=self.hparams.num_classes)
+        self.acc_test_tabular = torchmetrics.Accuracy(task=task, num_classes=self.hparams.num_classes)
 
         self.auc_train = torchmetrics.AUROC(task=task, num_classes=self.hparams.num_classes)
         self.auc_val = torchmetrics.AUROC(task=task, num_classes=self.hparams.num_classes)
+        self.auc_val_multimodal = torchmetrics.AUROC(task=task, num_classes=self.hparams.num_classes)
         self.auc_val_imaging = torchmetrics.AUROC(task=task, num_classes=self.hparams.num_classes)
         self.auc_val_tabular = torchmetrics.AUROC(task=task, num_classes=self.hparams.num_classes)
         self.auc_test = torchmetrics.AUROC(task=task, num_classes=self.hparams.num_classes)
+        self.auc_test_multimodal = torchmetrics.AUROC(task=task, num_classes=self.hparams.num_classes)
+        self.auc_test_imaging = torchmetrics.AUROC(task=task, num_classes=self.hparams.num_classes)
+        self.auc_test_tabular = torchmetrics.AUROC(task=task, num_classes=self.hparams.num_classes)
         
         self.acc_classifier_multi = torchmetrics.Accuracy(task=task, num_classes=self.hparams.num_classes)
         self.acc_classifier_image = torchmetrics.Accuracy(task=task, num_classes=self.hparams.num_classes)
@@ -274,7 +283,15 @@ class STiLModel_Consent(pl.LightningModule):
             
             self.log(f'multimodal.classifier.entropy', entropy_m, on_epoch=True, on_step=False, batch_size=B_l)
             self.log(f'image.classifier.entropy', entropy_i, on_epoch=True, on_step=False, batch_size=B_l)
-            self.log(f'tabular.classifier.entropy', entropy_t, on_epoch=True, on_step=False, batch_size=B_l) 
+            self.log(f'tabular.classifier.entropy', entropy_t, on_epoch=True, on_step=False, batch_size=B_l)
+            
+            balanced_acc_m = balanced_accuracy_score(y_true=y.cpu(), y_pred=top1_m.cpu())
+            balanced_acc_i = balanced_accuracy_score(y_true=y.cpu(), y_pred=top1_i.cpu())
+            balanced_acc_t = balanced_accuracy_score(y_true=y.cpu(), y_pred=top1_t.cpu())
+            
+            self.log(f'multimodal.train.balanced_acc', balanced_acc_m, on_epoch=True, on_step=False, batch_size=B_l)
+            self.log(f'image.train.balanced_acc', balanced_acc_i, on_epoch=True, on_step=False, batch_size=B_l)
+            self.log(f'tabular.train.balanced_acc', balanced_acc_t, on_epoch=True, on_step=False, batch_size=B_l)
             
             with torch.no_grad():
                 
@@ -296,8 +313,21 @@ class STiLModel_Consent(pl.LightningModule):
             # Cross-entropy loss with ground truth labels
             loss_p_prime = self.criterion_ce(p_prime, y)
             self.log(f"multimodal.train.p_prime_loss", loss_p_prime, on_epoch=True, on_step=False, batch_size=B_l)
+            
+            prob_prime = torch.softmax(p_prime.detach(), dim=1)
+            top1 = torch.argmax(prob_prime, dim=1)
+            balanced_acc = balanced_accuracy_score(y_true=y.cpu(), y_pred=top1.cpu())
+            self.log(f'train.balanced_acc', balanced_acc, on_epoch=True, on_step=False, batch_size=B_l)
+            self.acc_train(prob_prime, y)
+            self.auc_train(prob_prime, y)
         else:
             loss_p_prime = 0.0
+            prob_m_l = torch.softmax(y_hat_m.detach(), dim=1)
+            top1 = torch.argmax(prob_m_l, dim=1)
+            balanced_acc = balanced_accuracy_score(y_true=y.cpu(), y_pred=top1.cpu())
+            self.log(f'train.balanced_acc', balanced_acc, on_epoch=True, on_step=False, batch_size=B_l)
+            self.acc_train(prob_m_l, y)
+            self.auc_train(prob_m_l, y)
 
         # ============================= itc loss =======================================
         loss_itc, logits, labels = self.criterion_itc(feat_i, feat_t)
@@ -317,7 +347,6 @@ class STiLModel_Consent(pl.LightningModule):
         # =============================  classification ======================================
         # student labelled CE loss
         loss_ce = self.criterion_ce(y_hat_m, y) + self.criterion_ce(y_hat_i, y) + self.criterion_ce(y_hat_t, y)
-        prob_m_l = torch.softmax(y_hat_m.detach(), dim=1)
         self.log(f"multimodal.train.CEloss", loss_ce, on_epoch=True, on_step=False, batch_size=B_l)
         
         if self.train_logit_consent and self.replace_ce_loss:
@@ -325,9 +354,6 @@ class STiLModel_Consent(pl.LightningModule):
 
         loss = self.alpha*loss_ce + self.epsilon*loss_p_prime + self.beta*loss_itc + self.gamma*(loss_clubi + loss_club_i_est + loss_club_t + loss_club_t_est)
         self.log(f"multimodal.train.loss", loss, on_epoch=True, on_step=False, batch_size=B_l)
-            
-        self.acc_train(prob_m_l, y)
-        self.auc_train(prob_m_l, y)
         
         torch.cuda.empty_cache()
         return loss
@@ -378,7 +404,7 @@ class STiLModel_Consent(pl.LightningModule):
         # im_views, tab_views, y, original_im, _ = batch
         x, y = batch
         # use augmented image and tabular views
-        y_hat, y_i_hat, y_t_hat, x_si_enhance, x_si, x_ai, x_st_enhance, x_st, x_at, x_c = self.model.forward_all(x=x, y=y)
+        y_m_hat, y_i_hat, y_t_hat, x_si_enhance, x_si, x_ai, x_st_enhance, x_st, x_at, x_c = self.model.forward_all(x=x, y=y)
         feat_m = torch.cat((x_si_enhance, x_c, x_st_enhance), dim=1)
         feat_m, feat_i, feat_t = self.project_3features(feat_m, x_ai, x_at)
         # =============================  itc ======================================
@@ -397,18 +423,31 @@ class STiLModel_Consent(pl.LightningModule):
         self.log(f"multimodal.val.CLUBloss_tabular", loss_club_t, on_epoch=True, on_step=False)
         self.log(f"multimodal.val.CLUBloss_tabular_est", loss_club_t_est, on_epoch=True, on_step=False)
         # =============================  classification ======================================
-        loss_ce = self.criterion_ce(y_hat, y)
+        loss_ce = self.criterion_ce(y_m_hat, y)
         self.log(f"multimodal.val.CEloss", loss_ce, on_epoch=True, on_step=False)
         
         # Weighted combination of logits
         if self.train_logit_consent:
             w = F.softmax(torch.stack([self.w_m, self.w_i, self.w_t]), dim=0)
-            p_prime = w[0] * y_hat + w[1] * y_i_hat + w[2] * y_t_hat
+            p_prime = w[0] * y_m_hat + w[1] * y_i_hat + w[2] * y_t_hat
             # Cross-entropy loss with ground truth labels
             loss_p_prime = self.criterion_ce(p_prime, y)
-            self.log(f"multimodal.train.p_prime_loss", loss_p_prime, on_epoch=True, on_step=False, batch_size=B_l)
+            self.log(f"multimodal.val.p_prime_loss", loss_p_prime, on_epoch=True, on_step=False)
+
+            prob_prime = torch.softmax(p_prime.detach(), dim=1)
+            top1 = torch.argmax(prob_prime, dim=1)
+            balanced_acc = balanced_accuracy_score(y_true=y.cpu(), y_pred=top1.cpu())
+            self.log(f'val.balanced_acc', balanced_acc, on_epoch=True, on_step=False)
+            self.acc_val(prob_prime, y)
+            self.auc_val(prob_prime, y)
         else:
             loss_p_prime = 0.0
+            prob_m_l = torch.softmax(y_m_hat.detach(), dim=1)
+            top1 = torch.argmax(prob_m_l, dim=1)
+            balanced_acc = balanced_accuracy_score(y_true=y.cpu(), y_pred=top1.cpu())
+            self.log(f'val.balanced_acc', balanced_acc, on_epoch=True, on_step=False)
+            self.acc_val(prob_m_l, y)
+            self.auc_val(prob_m_l, y)
         
         if self.train_logit_consent and self.replace_ce_loss:
             self.alpha = 0.0
@@ -416,17 +455,28 @@ class STiLModel_Consent(pl.LightningModule):
         # loss = self.alpha*loss_ce + self.beta*loss_itc
         loss = self.alpha*loss_ce + self.beta*loss_itc + self.gamma*(loss_club_i + loss_club_i_est + loss_club_t + loss_club_t_est) + self.epsilon*loss_p_prime
         self.log(f"multimodal.val.loss", loss, on_epoch=True, on_step=False)
+        
+        prob_m_e, prob_i_e, prob_t_e = torch.softmax(y_m_hat.detach(), dim=1), torch.softmax(y_i_hat.detach(), dim=1), torch.softmax(y_t_hat.detach(), dim=1)
+        top1_m, top1_i, top1_t = torch.argmax(prob_m_e, dim=1), torch.argmax(prob_i_e, dim=1), torch.argmax(prob_t_e, dim=1)
+        
+        balanced_acc_m = balanced_accuracy_score(y_true=y.cpu(), y_pred=top1_m.cpu())
+        balanced_acc_i = balanced_accuracy_score(y_true=y.cpu(), y_pred=top1_i.cpu())
+        balanced_acc_t = balanced_accuracy_score(y_true=y.cpu(), y_pred=top1_t.cpu())
+            
+        self.log(f'multimodal.val.balanced_acc', balanced_acc_m, on_epoch=True, on_step=False)
+        self.log(f'image.val.balanced_acc', balanced_acc_i, on_epoch=True, on_step=False)
+        self.log(f'tabular.val.balanced_acc', balanced_acc_t, on_epoch=True, on_step=False)
 
         # task accuracy
-        y_hat = torch.softmax(y_hat.detach(), dim=1)
+        y_m_hat = torch.softmax(y_m_hat.detach(), dim=1)
         y_i_hat = torch.softmax(y_i_hat.detach(), dim=1)
         y_t_hat = torch.softmax(y_t_hat.detach(), dim=1)
         if self.hparams.num_classes==2:
-            y_hat = y_hat[:,1]
+            y_m_hat = y_m_hat[:,1]
             y_i_hat = y_i_hat[:,1]
             y_t_hat = y_t_hat[:,1]
-        self.acc_val(y_hat, y)
-        self.auc_val(y_hat, y)
+        self.acc_val_multimodal(y_m_hat, y)
+        self.auc_val_multimodal(y_m_hat, y)
         self.acc_val_imaging(y_i_hat, y)
         self.auc_val_imaging(y_i_hat, y)
         self.acc_val_tabular(y_t_hat, y)
@@ -445,6 +495,8 @@ class STiLModel_Consent(pl.LightningModule):
 
         epoch_acc_val = self.acc_val.compute()
         epoch_auc_val = self.auc_val.compute()
+        epoch_acc_val_multimodal = self.acc_val_multimodal.compute()
+        epoch_auc_val_multimodal = self.auc_val_multimodal.compute()
         epoch_acc_val_imaging = self.acc_val_imaging.compute()
         epoch_auc_val_imaging = self.auc_val_imaging.compute()
         epoch_acc_val_tabular = self.acc_val_tabular.compute()
@@ -452,12 +504,15 @@ class STiLModel_Consent(pl.LightningModule):
 
         self.log('eval.val.acc', epoch_acc_val, on_epoch=True, on_step=False, metric_attribute=self.acc_val)
         self.log('eval.val.auc', epoch_auc_val, on_epoch=True, on_step=False, metric_attribute=self.auc_val)
+        self.log('eval.val.acc_multimodal', epoch_acc_val_multimodal, on_epoch=True, on_step=False, metric_attribute=self.acc_val_multimodal)
+        self.log('eval.val.auc_multimodal', epoch_auc_val_multimodal, on_epoch=True, on_step=False, metric_attribute=self.auc_val_multimodal)
+        
         self.log('eval.val.acc_imaging', epoch_acc_val_imaging, on_epoch=True, on_step=False, metric_attribute=self.acc_val_imaging)
         self.log('eval.val.auc_imaging', epoch_auc_val_imaging, on_epoch=True, on_step=False, metric_attribute=self.auc_val_imaging)
         self.log('eval.val.acc_tabular', epoch_acc_val_tabular, on_epoch=True, on_step=False, metric_attribute=self.acc_val_tabular)
         self.log('eval.val.auc_tabular', epoch_auc_val_tabular, on_epoch=True, on_step=False, metric_attribute=self.auc_val_tabular)
 
-        self.print(f'Epoch {self.current_epoch}: val.acc: {epoch_acc_val}, val.auc: {epoch_auc_val}, val.acc_imaging: {epoch_acc_val_imaging}, val.auc_imaging: {epoch_auc_val_imaging}, val.acc_tabular: {epoch_acc_val_tabular}, val.auc_tabular: {epoch_auc_val_tabular}')
+        self.print(f'Epoch {self.current_epoch}: val.acc: {epoch_acc_val}, val.auc: {epoch_auc_val}, val.acc_multimodal: {epoch_acc_val_multimodal}, val.auc_multimodal: {epoch_auc_val_multimodal}, val.acc_imaging: {epoch_acc_val_imaging}, val.auc_imaging: {epoch_auc_val_imaging}, val.acc_tabular: {epoch_acc_val_tabular}, val.auc_tabular: {epoch_auc_val_tabular}')
       
         if self.hparams.target == 'dvm':
             if epoch_acc_val > self.best_val_score:
@@ -470,6 +525,8 @@ class STiLModel_Consent(pl.LightningModule):
 
         self.acc_val.reset()
         self.auc_val.reset()
+        self.acc_val_multimodal.reset()
+        self.auc_val_multimodal.reset()
         self.acc_val_imaging.reset()
         self.auc_val_imaging.reset()
         self.acc_val_tabular.reset()
@@ -483,13 +540,13 @@ class STiLModel_Consent(pl.LightningModule):
         """
         x,y = batch
         
-        y_hat, y_hat_i, y_hat_t, _, _, _, _, _ = self.model.forward(x)     
+        y_hat_m, y_hat_i, y_hat_t, _, _, _, _, _ = self.model.forward(x)     
 
-        y_hat_s = torch.softmax(y_hat.detach(), dim=1)
+        y_hat_m_s = torch.softmax(y_hat_m.detach(), dim=1)
         y_hat_i_s = torch.softmax(y_hat_i.detach(), dim=1)
         y_hat_t_s = torch.softmax(y_hat_t.detach(), dim=1)
         
-        entropy_m = -torch.sum(y_hat_s * torch.log(y_hat_s + 1e-9), dim=1)
+        entropy_m = -torch.sum(y_hat_m_s * torch.log(y_hat_m_s + 1e-9), dim=1)
         entropy_i = -torch.sum(y_hat_i_s * torch.log(y_hat_i_s + 1e-9), dim=1)
         entropy_t = -torch.sum(y_hat_t_s * torch.log(y_hat_t_s + 1e-9), dim=1)
         
@@ -497,17 +554,39 @@ class STiLModel_Consent(pl.LightningModule):
         self.log(f'image.test.classifier.entropy', entropy_i, on_epoch=True, on_step=False, batch_size=x[0].size()[0])
         self.log(f'tabular.test.classifier.entropy', entropy_t, on_epoch=True, on_step=False, batch_size=x[0].size()[0])
         
+        top1_m, top1_i, top1_t = torch.argmax(y_hat_m_s, dim=1), torch.argmax(y_hat_i_s, dim=1), torch.argmax(y_hat_t_s, dim=1)
+        balanced_acc_m = balanced_accuracy_score(y_true=y.cpu(), y_pred=top1_m.cpu())
+        balanced_acc_i = balanced_accuracy_score(y_true=y.cpu(), y_pred=top1_i.cpu())
+        balanced_acc_t = balanced_accuracy_score(y_true=y.cpu(), y_pred=top1_t.cpu())
+            
+        self.log(f'multimodal.test.balanced_acc', balanced_acc_m, on_epoch=True, on_step=False)
+        self.log(f'image.test.balanced_acc', balanced_acc_i, on_epoch=True, on_step=False)
+        self.log(f'tabular.test.balanced_acc', balanced_acc_t, on_epoch=True, on_step=False)
+        
         if self.hparams.num_classes==2:
-            y_hat = y_hat[:,1]
+            y_hat = y_hat_m[:,1]
             
         if self.train_logit_consent:
-            p_prime = self.w_m * y_hat + self.w_i * y_hat_i + self.w_t * y_hat_t
+            p_prime = self.w_m * y_hat_m + self.w_i * y_hat_i + self.w_t * y_hat_t
             y_hat = torch.softmax(p_prime.detach(), dim=1)
         else:
-            y_hat = torch.softmax(y_hat.detach(), dim=1)
+            y_hat = torch.softmax(y_hat_m.detach(), dim=1)
+
+        top1 = torch.argmax(y_hat, dim=1)
+        balanced_acc = balanced_accuracy_score(y_true=y.cpu(), y_pred=top1.cpu())
+        self.log(f'test.balanced_acc', balanced_acc, on_epoch=True, on_step=False)
 
         self.acc_test(y_hat, y)
         self.auc_test(y_hat, y)
+        
+        self.acc_test_multimodal(y_hat_m, y)
+        self.auc_test_multimodal(y_hat_m, y)
+        
+        self.acc_test_imaging(y_hat_i, y)
+        self.auc_test_imaging(y_hat_i, y)
+        
+        self.acc_test_tabular(y_hat_t, y)
+        self.auc_test_tabular(y_hat_t, y)
 
     def test_epoch_end(self, _) -> None:
         """
@@ -515,9 +594,21 @@ class STiLModel_Consent(pl.LightningModule):
         """
         test_acc = self.acc_test.compute()
         test_auc = self.auc_test.compute()
+        test_acc_multimodal = self.acc_test_multimodal.compute()
+        test_auc_multimodal = self.auc_test_multimodal.compute()
+        test_acc_imaging = self.acc_test_imaging.compute()
+        test_auc_imaging = self.auc_test_imaging.compute()
+        test_acc_tabular = self.acc_test_tabular.compute()
+        test_auc_tabular = self.auc_test_tabular.compute()
 
         self.log('test.acc', test_acc)
         self.log('test.auc', test_auc)
+        self.log('test.acc_multimodal', test_acc_multimodal)
+        self.log('test.auc_multimodal', test_auc_multimodal)
+        self.log('test.acc_imaging', test_acc_imaging)
+        self.log('test.auc_imaging', test_auc_imaging)
+        self.log('test.acc_tabular', test_acc_tabular)
+        self.log('test.auc_tabular', test_auc_tabular)
     
     def calc_and_log_train_embedding_acc(self, logits, labels, modality: str) -> None:
         self.top1_acc_train(logits, labels)

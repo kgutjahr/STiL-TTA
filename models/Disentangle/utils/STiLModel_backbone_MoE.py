@@ -76,14 +76,12 @@ class DisCoAttentionBackbone(nn.Module):
         else:
             if self.cut_classifier_input:
                 self.classifier_gate = nn.Linear(self.hidden_dim*3, 3)
-                self.classifier_multimodal = nn.Linear(self.hidden_dim*3, args.num_classes)
-                self.classifier_imaging = nn.Linear(self.hidden_dim, args.num_classes)
-                self.classifier_tabular = nn.Linear(self.hidden_dim, args.num_classes)
             else:
                 self.classifier_gate = nn.Linear(self.hidden_dim*5, 3)
-                self.classifier_multimodal = nn.Linear(self.hidden_dim*3, args.num_classes)
-                self.classifier_imaging = nn.Linear(self.hidden_dim*2, args.num_classes)
-                self.classifier_tabular = nn.Linear(self.hidden_dim*2, args.num_classes)    
+
+            self.classifier_multimodal = nn.Linear(self.hidden_dim*3, args.num_classes)
+            self.classifier_imaging = nn.Linear(self.hidden_dim*2, args.num_classes)
+            self.classifier_tabular = nn.Linear(self.hidden_dim*2, args.num_classes)    
             # MoE Classifier Gate
             
         if args.checkpoint: 
@@ -193,15 +191,10 @@ class DisCoAttentionBackbone(nn.Module):
                 x_si_enhance = self.augment(aug_modality_list=aug_modality_list, input_vec=x_si_enhance, modality="image", y=y)
                 x_st_enhance = self.augment(aug_modality_list=aug_modality_list, input_vec=x_st_enhance, modality="tabular", y=y)
                 x_c = self.augment(aug_modality_list=aug_modality_list, input_vec=x_c, modality="multimodal", y=y)
-        
-        if self.cut_classifier_input:
-            imaging_input = x_si_enhance
-            tabular_input = x_st_enhance
-            multimodal_input = torch.cat([x_si_enhance, x_c, x_st_enhance], dim=1)            
-        else:
-            imaging_input = torch.cat([x_si_enhance, x_ai], dim=1)
-            tabular_input = torch.cat([x_st_enhance, x_at], dim=1)
-            multimodal_input = torch.cat([x_si_enhance, x_c, x_st_enhance], dim=1)
+
+        imaging_input = torch.cat([x_si_enhance, x_ai], dim=1)
+        tabular_input = torch.cat([x_st_enhance, x_at], dim=1)
+        multimodal_input = torch.cat([x_si_enhance, x_c, x_st_enhance], dim=1)
 
         if isinstance(self.augmentation_dict, DictConfig):
             if ({"modality", "when"} <= self.augmentation_dict.keys()) and (self.augmentation_dict["when"] == "classifier"):
@@ -246,15 +239,13 @@ class DisCoAttentionBackbone(nn.Module):
         x_si, x_ai, x_st, x_at = self.forward_encoding_feature(x)
         x_si_enhance, x_ai, x_st_enhance, x_at, x_c = self.forward_multimodal_feature(x_si, x_ai, x_st, x_at)
         
-        if self.cut_classifier_input:
-            imaging_input = x_si_enhance
-            tabular_input = x_st_enhance
-            multimodal_input = torch.cat([x_si_enhance, x_c, x_st_enhance], dim=1)            
+        imaging_input = torch.cat([x_si_enhance, x_ai], dim=1)
+        tabular_input = torch.cat([x_st_enhance, x_at], dim=1)
+        multimodal_input = torch.cat([x_si_enhance, x_c, x_st_enhance], dim=1)      
+        
+        if self.cut_classifier_input:           
             gate_input = multimodal_input
         else:
-            imaging_input = torch.cat([x_si_enhance, x_ai], dim=1)
-            tabular_input = torch.cat([x_st_enhance, x_at], dim=1)
-            multimodal_input = torch.cat([x_si_enhance, x_c, x_st_enhance], dim=1)
             gate_input = torch.cat([x_ai, multimodal_input, x_at], dim=1)
         
         MoE_w, _ = self.run_gate(x=gate_input)
