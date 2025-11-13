@@ -70,14 +70,18 @@ class DisCoAttentionBackbone(nn.Module):
                             ])
         
         self.MoE_k = args.MoE_k
+        self.MoE_gate_noise = args.MoE_gate_noise
         
         if args.pretrain == True and args.checkpoint is None:
             print('Pretrain model does not have aggregation and classifier')
         else:
             if self.cut_classifier_input:
-                self.classifier_gate = nn.Linear(self.hidden_dim*3, 3)
+                
+                self.classifier_gate = MLP(in_dim=self.hidden_dim*3, hidden_dim=int(self.hidden_dim*1.5), out_dim=args.num_classes)
+                #self.classifier_gate = nn.Linear(self.hidden_dim*3, 3)
             else:
-                self.classifier_gate = nn.Linear(self.hidden_dim*5, 3)
+                self.classifier_gate = MLP(in_dim=self.hidden_dim*5, hidden_dim=int(self.hidden_dim*2.5), out_dim=args.num_classes)
+                #self.classifier_gate = nn.Linear(self.hidden_dim*5, 3)
 
             self.classifier_multimodal = nn.Linear(self.hidden_dim*3, args.num_classes)
             self.classifier_imaging = nn.Linear(self.hidden_dim*2, args.num_classes)
@@ -166,6 +170,10 @@ class DisCoAttentionBackbone(nn.Module):
     
     def run_gate(self, x: torch.Tensor):
         gate_logits = self.classifier_gate(x)
+        
+        if self.MoE_gate_noise:
+            MoE_noise = torch.randn_like(input=gate_logits)
+            gate_logits = gate_logits + MoE_noise
 
         top_k_logits, top_k_indices = torch.topk(
             gate_logits, self.MoE_k, dim=1
@@ -232,6 +240,7 @@ class DisCoAttentionBackbone(nn.Module):
         
         # weights: [b, 3] → [b, 3, 1] for broadcasting
         combined_logits = torch.sum(MoE_w.unsqueeze(-1) * logits, dim=1)
+        
         return out_m, out_i, out_t, x_si_enhance, torch.mean(x_si,dim=1), x_ai, x_st_enhance, torch.mean(x_st,dim=1), x_at, x_c, combined_logits, MoE_w
     
 
@@ -254,10 +263,8 @@ class DisCoAttentionBackbone(nn.Module):
         out_i = self.classifier_imaging(imaging_input)
         out_t = self.classifier_tabular(tabular_input)
         
-        # Stack classifier outputs: shape [b, 3, num_classes]
         logits = torch.stack([out_m, out_i, out_t], dim=1)
         
-        # weights: [b, 3] → [b, 3, 1] for broadcasting
         combined_logits = torch.sum(MoE_w.unsqueeze(-1) * logits, dim=1)
         
         return out_m, out_i, out_t, x_si_enhance, x_ai, x_st_enhance, x_at, x_c, combined_logits, MoE_w

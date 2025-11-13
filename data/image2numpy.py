@@ -28,4 +28,4 @@ def process_DVM(
             
 
 if __name__ == '__main__':
-    process_DVM('/data/local/kgutjahr/datasets/ADNI/dataset_files/TE')
+    process_DVM('/data/local/kgutjahr/datasets/ADNI/dataset_files/final_TE')

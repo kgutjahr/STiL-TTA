@@ -20,12 +20,12 @@ run_experiment () {
           CONFIG="${con}"
 
           if (( ${#BATCHSIZES[@]} > 1 )); then
-            EXP="${RESULT_DIR}/${con}_${ds}_${b}"
+            EXP="${RESULT_DIR}/${con}_$(basename "$ds")_${b}"
           else
-            EXP="${RESULT_DIR}/${con}_${ds}"
+            EXP="${RESULT_DIR}/${con}_$(basename "$ds")"
           fi
 
-          LOG="error_logs/${ds}_${b}.log"
+          LOG="error_logs/$(basename "$ds")_${b}.log"
 
           EXTRA_ARGS=""
           for key in "${!PARAMS_REF[@]}"; do
@@ -40,6 +40,7 @@ run_experiment () {
             exp_name="$EXP" \
             evaluate=True \
             pretrain="${PRETRAIN[@]}" \
+            batch_size="$b" \
             $EXTRA_ARGS \
             2> "$LOG"
           echo ">>> Finished: dataset=$ds, modality=$con"
@@ -51,16 +52,14 @@ run_experiment () {
 #
 
 # Experiment
-CONFIGS=("config_dvm_STiL_consent_0.1")
-DATASETS=("configs/augment_configs/dataset/shifted_configs/TIP/dvm_all_server_reordered_SemiPseudo_TIP_normal" "configs/augment_configs/dataset/shifted_configs/TIP/dvm_all_server_reordered_SemiPseudo_TIP_black" "configs/augment_configs/dataset/shifted_configs/TIP/dvm_all_server_reordered_SemiPseudo_TIP_miles" "configs/augment_configs/dataset/shifted_configs/TIP/dvm_all_server_reordered_SemiPseudo_TIP_color_miles")
-BATCHSIZES=(512)
-DEVICE=1
+CONFIGS=("config_dvm_STiL_MoE_0.1_2" "config_dvm_STiL_MoE_0.5_2" "config_dvm_STiL_MoE_1_2" "config_dvm_STiL_MoE_2_2" "config_dvm_STiL_MoE_3_2" "config_dvm_STiL_MoE_4_2")
+DATASETS=("ADNI/adni_normal_final" "ADNI/adni_weight_final" "ADNI/adni_age_final" "ADNI/adni_TE_final")
+BATCHSIZES=(64)
+DEVICE=0
 REPEAT=10
-RESULT_DIR="ADNI/final_dataset/baseline"
+RESULT_DIR="ADNI/final_dataset/MoE2-MLP-noise"
 declare -A EXTRA_PARAMS=(
-  ["train_logit_consent"]=False
-  ["cut_classifier_input"]=False
-  ["replace_ce_loss"]=False
+  ["cut_classifier_input"]=True
 )
 
 

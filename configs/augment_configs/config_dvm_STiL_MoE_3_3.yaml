@@ -35,6 +35,7 @@ sweep: False
 MoE_k: 3
 omega: 3.0
 cut_classifier_input: True
+MoE_gate_noise: False
 
 algorithm_name: STiL_MoE
 pretrained_model: TIP
