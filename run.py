@@ -1,6 +1,8 @@
 import os 
 os.environ["WANDB_MODE"] = "offline"
 os.environ["WANDB_DIR"] = "/data/local/kgutjahr/results/test"
+os.environ["WANDB_IGNORE_GLOBS"] = "*"
+os.environ["WANDB_START_METHOD"] = "thread"
 
 import sys
 import time
@@ -12,8 +14,9 @@ from omegaconf import DictConfig, OmegaConf
 import torch
 import pytorch_lightning as pl
 
-from pytorch_lightning.loggers import WandbLogger
 import wandb
+
+from pytorch_lightning.loggers import WandbLogger
 
 from trainers.evaluate import evaluate
 from trainers.test import test
@@ -21,8 +24,9 @@ from trainers.pretrain import pretrain
 from utils.utils import grab_arg_from_checkpoint, prepend_paths, re_prepend_paths
 
 torch.multiprocessing.set_sharing_strategy('file_system')
+#torch.multiprocessing.set_start_method("spawn", force=True)
 torch.backends.cudnn.determinstic = True
-torch.backends.cudnn.benchmark = False
+torch.backends.cudnn.benchmark = True
 hydra.HYDRA_FULL_ERROR = 1
 
 
@@ -69,15 +73,31 @@ def run(args: DictConfig):
   else:
     save_dir = os.path.dirname(os.path.abspath(sys.argv[0]))
     save_dir = os.path.join(os.path.dirname(os.path.dirname(save_dir)), 'result')
-
+    
+  print(save_dir)
   exp_name = f'{args.exp_name}_{args.target}_{now.strftime("%m%d_%H%M")}'
+    
+  run_init = wandb.init(
+      project=args.wandb_project if args.use_wandb else "Test",
+      entity=args.wandb_entity,
+      dir=save_dir,
+      name=exp_name,
+      mode="offline",
+      settings=wandb.Settings(
+          _disable_stats=True,    # no heavy system metrics
+          disable_code=True,      # no code snapshots
+          _disable_meta=True      # no extra metadata
+      )
+  )
+
+  #exit()
   if args.use_wandb:
     if args.resume_training and args.wandb_id:
-      wandb_logger = WandbLogger(name=exp_name, project=args.wandb_project, entity=args.wandb_entity, save_dir=save_dir, offline=args.offline, id=args.wandb_id, resume='allow')
+      wandb_logger = WandbLogger(experiment=run_init, log_model=False, name=exp_name, project=args.wandb_project, entity=args.wandb_entity, save_dir=save_dir, offline=args.offline, id=args.wandb_id, resume='allow')
     else:
-      wandb_logger = WandbLogger(name=exp_name, project=args.wandb_project, entity=args.wandb_entity, save_dir=save_dir, offline=args.offline)
+      wandb_logger = WandbLogger(experiment=run_init, log_model=False, name=exp_name, project=args.wandb_project, entity=args.wandb_entity, save_dir=save_dir, offline=args.offline)
   else:
-    wandb_logger = WandbLogger(name=exp_name, project='Test', entity=args.wandb_entity, save_dir=save_dir, offline=args.offline)
+    wandb_logger = WandbLogger(experiment=run_init, log_model=False, name=exp_name, project='Test', entity=args.wandb_entity, save_dir=save_dir, offline=args.offline)
   args.wandb_id = wandb_logger.version
 
   if args.checkpoint and not args.resume_training:
@@ -107,7 +127,7 @@ def run(args: DictConfig):
     torch.cuda.empty_cache()
     evaluate(args, wandb_logger)
 
-  wandb.finish()
+  wandb.finish(quiet=True)
   del wandb_logger
 
   end = time.time()

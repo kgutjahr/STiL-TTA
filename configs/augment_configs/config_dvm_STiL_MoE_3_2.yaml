@@ -36,6 +36,8 @@ MoE_k: 2
 omega: 3.0
 cut_classifier_input: True
 MoE_gate_noise: False
+train_logit_consent:
+replace_ce_loss:
 
 algorithm_name: STiL_MoE
 pretrained_model: TIP

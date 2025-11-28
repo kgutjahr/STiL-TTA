@@ -8,7 +8,7 @@ from pytorch_lightning import Trainer
 from pytorch_lightning.callbacks import ModelCheckpoint, LearningRateMonitor
 
 from utils.utils import grab_image_augmentations, grab_wids, create_logdir
-from utils.ssl_online_custom import SSLOnlineEvaluator
+#from utils.ssl_online_custom import SSLOnlineEvaluator
 
 from datasets.ContrastiveImagingAndTabularDataset import ContrastiveImagingAndTabularDataset
 from datasets.ContrastiveReconstructImagingAndTabularDataset import ContrastiveReconstructImagingAndTabularDataset
@@ -95,11 +95,11 @@ def pretrain(hparams, wandb_logger):
   
   callbacks = []
 
-  if hparams.online_mlp:
-    model.hparams.classifier_freq = float('Inf')
-    z_dim =  hparams.multimodal_embedding_dim if hparams.strategy=='tip' else model.pooled_dim
-    callbacks.append(SSLOnlineEvaluator(z_dim = z_dim, hidden_dim = hparams.embedding_dim, num_classes = hparams.num_classes, swav = False, multimodal = (hparams.datatype=='multimodal'), 
-                                        strategy=hparams.strategy))
+  #if hparams.online_mlp:
+  #  model.hparams.classifier_freq = float('Inf')
+  #  z_dim =  hparams.multimodal_embedding_dim if hparams.strategy=='tip' else model.pooled_dim
+  #  callbacks.append(SSLOnlineEvaluator(z_dim = z_dim, hidden_dim = hparams.embedding_dim, num_classes = hparams.num_classes, swav = False, multimodal = (hparams.datatype=='multimodal'), 
+  #                                      strategy=hparams.strategy))
   callbacks.append(ModelCheckpoint(filename='checkpoint_last_epoch_{epoch:02d}', dirpath=logdir, save_on_train_epoch_end=True, auto_insert_metric_name=False))
   callbacks.append(LearningRateMonitor(logging_interval='epoch'))
 

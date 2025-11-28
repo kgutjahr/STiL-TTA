@@ -30,6 +30,11 @@ run_experiment () {
           EXTRA_ARGS=""
           for key in "${!PARAMS_REF[@]}"; do
             EXTRA_ARGS+=" ${key}=${PARAMS_REF[$key]}"
+
+            # If this key is "seed", append its value to EXP
+            if [[ "$key" == "seed" ]]; then
+                EXP="${EXP}_seed_${PARAMS_REF[$key]}"
+            fi
           done
 
           #
@@ -51,15 +56,20 @@ run_experiment () {
 }
 #
 
+
+
 # Experiment
-CONFIGS=("config_dvm_STiL_MoE_0.1_2" "config_dvm_STiL_MoE_0.5_2" "config_dvm_STiL_MoE_1_2" "config_dvm_STiL_MoE_2_2" "config_dvm_STiL_MoE_3_2" "config_dvm_STiL_MoE_4_2")
-DATASETS=("ADNI/adni_normal_final" "ADNI/adni_weight_final" "ADNI/adni_age_final" "ADNI/adni_TE_final")
-BATCHSIZES=(64)
+CONFIGS=("config_dvm_STiL_consent_0.1")
+DATASETS=("TIP/dvm_all_server_reordered_SemiPseudo_TIP_normal" "TIP/dvm_all_server_reordered_SemiPseudo_TIP_black" "TIP/dvm_all_server_reordered_SemiPseudo_TIP_miles" "TIP/dvm_all_server_reordered_SemiPseudo_TIP_color_miles")
+BATCHSIZES=(512)
 DEVICE=0
-REPEAT=10
-RESULT_DIR="ADNI/final_dataset/MoE2-MLP-noise"
+REPEAT=1
+RESULT_DIR="DVM/baseline"
 declare -A EXTRA_PARAMS=(
-  ["cut_classifier_input"]=True
+  ["cut_classifier_input"]=False
+  ["train_logit_consent"]=False
+  ["replace_ce_loss"]=False
+  ["seed"]=2024
 )
 
 

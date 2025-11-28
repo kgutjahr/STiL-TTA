@@ -14,7 +14,7 @@ import pytorch_lightning as pl
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.distributed as dist
-from .metrics import balanced_accuracy_by_hand
+from sklearn.metrics import balanced_accuracy_score
 
 from lightly.models.modules import SimCLRProjectionHead
 from pl_bolts.optimizers.lr_scheduler import LinearWarmupCosineAnnealingLR
@@ -287,9 +287,9 @@ class STiLModel_Consent(pl.LightningModule):
             self.log(f'tabular.classifier.entropy', entropy_t, on_epoch=True, on_step=False)
             
             
-            balanced_acc_m = balanced_accuracy_by_hand(y_true=y.cpu(), y_pred=top1_m.cpu(), num_classes=self.num_classes)
-            balanced_acc_i = balanced_accuracy_by_hand(y_true=y.cpu(), y_pred=top1_i.cpu(), num_classes=self.num_classes)
-            balanced_acc_t = balanced_accuracy_by_hand(y_true=y.cpu(), y_pred=top1_t.cpu(), num_classes=self.num_classes)
+            balanced_acc_m = balanced_accuracy_score(y_true=y.cpu(), y_pred=top1_m.cpu())
+            balanced_acc_i = balanced_accuracy_score(y_true=y.cpu(), y_pred=top1_i.cpu())
+            balanced_acc_t = balanced_accuracy_score(y_true=y.cpu(), y_pred=top1_t.cpu())
             
             self.log(f'multimodal.train.balanced_acc', balanced_acc_m, on_epoch=True, on_step=False)
             self.log(f'image.train.balanced_acc', balanced_acc_i, on_epoch=True, on_step=False)
@@ -318,7 +318,7 @@ class STiLModel_Consent(pl.LightningModule):
             
             prob_prime = torch.softmax(p_prime.detach(), dim=1)
             top1 = torch.argmax(prob_prime, dim=1)
-            balanced_acc = balanced_accuracy_by_hand(y_true=y.cpu(), y_pred=top1.cpu(), num_classes=self.num_classes)
+            balanced_acc = balanced_accuracy_score(y_true=y.cpu(), y_pred=top1.cpu())
             self.log(f'train.balanced_acc', balanced_acc, on_epoch=True, on_step=False)
             self.acc_train(prob_prime, y)
             self.auc_train(prob_prime, y)
@@ -326,7 +326,7 @@ class STiLModel_Consent(pl.LightningModule):
             loss_p_prime = 0.0
             prob_m_l = torch.softmax(y_hat_m.detach(), dim=1)
             top1 = torch.argmax(prob_m_l, dim=1)
-            balanced_acc = balanced_accuracy_by_hand(y_true=y.cpu(), y_pred=top1.cpu(), num_classes=self.num_classes)
+            balanced_acc = balanced_accuracy_score(y_true=y.cpu(), y_pred=top1.cpu())
             self.log(f'train.balanced_acc', balanced_acc, on_epoch=True, on_step=False)
             self.acc_train(prob_m_l, y)
             self.auc_train(prob_m_l, y)
@@ -438,7 +438,7 @@ class STiLModel_Consent(pl.LightningModule):
 
             prob_prime = torch.softmax(p_prime.detach(), dim=1)
             top1 = torch.argmax(prob_prime, dim=1)
-            balanced_acc = balanced_accuracy_by_hand(y_true=y.cpu(), y_pred=top1.cpu(), num_classes=self.num_classes)
+            balanced_acc = balanced_accuracy_score(y_true=y.cpu(), y_pred=top1.cpu())
             self.log(f'eval.val.balanced_acc', balanced_acc, on_epoch=True, on_step=False)
             self.acc_val(prob_prime, y)
             self.auc_val(prob_prime, y)
@@ -446,7 +446,7 @@ class STiLModel_Consent(pl.LightningModule):
             loss_p_prime = 0.0
             prob_m_l = torch.softmax(y_m_hat.detach(), dim=1)
             top1 = torch.argmax(prob_m_l, dim=1)
-            balanced_acc = balanced_accuracy_by_hand(y_true=y.cpu(), y_pred=top1.cpu(), num_classes=self.num_classes)
+            balanced_acc = balanced_accuracy_score(y_true=y.cpu(), y_pred=top1.cpu())
             self.log(f'eval.val.balanced_acc', balanced_acc, on_epoch=True, on_step=False)
             self.acc_val(prob_m_l, y)
             self.auc_val(prob_m_l, y)
@@ -461,9 +461,9 @@ class STiLModel_Consent(pl.LightningModule):
         prob_m_e, prob_i_e, prob_t_e = torch.softmax(y_m_hat.detach(), dim=1), torch.softmax(y_i_hat.detach(), dim=1), torch.softmax(y_t_hat.detach(), dim=1)
         top1_m, top1_i, top1_t = torch.argmax(prob_m_e, dim=1), torch.argmax(prob_i_e, dim=1), torch.argmax(prob_t_e, dim=1)
         
-        balanced_acc_m = balanced_accuracy_by_hand(y_true=y.cpu(), y_pred=top1_m.cpu(), num_classes=self.num_classes)
-        balanced_acc_i = balanced_accuracy_by_hand(y_true=y.cpu(), y_pred=top1_i.cpu(), num_classes=self.num_classes)
-        balanced_acc_t = balanced_accuracy_by_hand(y_true=y.cpu(), y_pred=top1_t.cpu(), num_classes=self.num_classes)
+        balanced_acc_m = balanced_accuracy_score(y_true=y.cpu(), y_pred=top1_m.cpu())
+        balanced_acc_i = balanced_accuracy_score(y_true=y.cpu(), y_pred=top1_i.cpu())
+        balanced_acc_t = balanced_accuracy_score(y_true=y.cpu(), y_pred=top1_t.cpu())
             
         self.log(f'multimodal.val.balanced_acc', balanced_acc_m, on_epoch=True, on_step=False)
         self.log(f'image.val.balanced_acc', balanced_acc_i, on_epoch=True, on_step=False)
@@ -557,9 +557,9 @@ class STiLModel_Consent(pl.LightningModule):
         self.log(f'tabular.test.classifier.entropy', entropy_t, on_epoch=True, on_step=False, batch_size=x[0].size()[0])
         
         top1_m, top1_i, top1_t = torch.argmax(y_hat_m_s, dim=1), torch.argmax(y_hat_i_s, dim=1), torch.argmax(y_hat_t_s, dim=1)
-        balanced_acc_m = balanced_accuracy_by_hand(y_true=y.cpu(), y_pred=top1_m.cpu(), num_classes=self.num_classes)
-        balanced_acc_i = balanced_accuracy_by_hand(y_true=y.cpu(), y_pred=top1_i.cpu(), num_classes=self.num_classes)
-        balanced_acc_t = balanced_accuracy_by_hand(y_true=y.cpu(), y_pred=top1_t.cpu(), num_classes=self.num_classes)
+        balanced_acc_m = balanced_accuracy_score(y_true=y.cpu(), y_pred=top1_m.cpu())
+        balanced_acc_i = balanced_accuracy_score(y_true=y.cpu(), y_pred=top1_i.cpu())
+        balanced_acc_t = balanced_accuracy_score(y_true=y.cpu(), y_pred=top1_t.cpu())
             
         self.log(f'multimodal.test.balanced_acc', balanced_acc_m, on_epoch=True, on_step=False)
         self.log(f'image.test.balanced_acc', balanced_acc_i, on_epoch=True, on_step=False)
@@ -575,7 +575,7 @@ class STiLModel_Consent(pl.LightningModule):
             y_hat = torch.softmax(y_hat_m.detach(), dim=1)
 
         top1 = torch.argmax(y_hat, dim=1)
-        balanced_acc = balanced_accuracy_by_hand(y_true=y.cpu(), y_pred=top1.cpu(), num_classes=self.num_classes)
+        balanced_acc = balanced_accuracy_score(y_true=y.cpu(), y_pred=top1.cpu())
         self.log(f'test.balanced_acc', balanced_acc, on_epoch=True, on_step=False)
 
         self.acc_test(y_hat, y)
@@ -636,10 +636,7 @@ class STiLModel_Consent(pl.LightningModule):
             {'params': self.projector_tabular.parameters()},
             {'params': self.projector_multimodal.parameters()},
             {'params': self.CLUB_imaging.parameters()},
-            {'params': self.CLUB_tabular.parameters()},
-            {'params': self.w_m},
-            {'params': self.w_i},
-            {'params': self.w_t},
+            {'params': self.CLUB_tabular.parameters()}
         ], lr=self.hparams.lr_eval, weight_decay=self.hparams.weight_decay_eval)
         scheduler = self.initialize_scheduler(optimizer)
         return (

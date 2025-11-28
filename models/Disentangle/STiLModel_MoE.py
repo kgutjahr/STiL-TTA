@@ -14,7 +14,7 @@ import pytorch_lightning as pl
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.distributed as dist
-from .metrics import balanced_accuracy
+from sklearn.metrics import balanced_accuracy_score
 
 from lightly.models.modules import SimCLRProjectionHead
 from pl_bolts.optimizers.lr_scheduler import LinearWarmupCosineAnnealingLR
@@ -144,15 +144,15 @@ class STiLModel_MoE(pl.LightningModule):
         self.acc_test_imaging = torchmetrics.Accuracy(task=task, num_classes=self.hparams.num_classes)
         self.acc_test_tabular = torchmetrics.Accuracy(task=task, num_classes=self.hparams.num_classes)
 
-        self.auc_train = torchmetrics.AUROC(task=task, num_classes=self.hparams.num_classes)
-        self.auc_val = torchmetrics.AUROC(task=task, num_classes=self.hparams.num_classes)
-        self.auc_val_multimodal = torchmetrics.AUROC(task=task, num_classes=self.hparams.num_classes)
-        self.auc_val_imaging = torchmetrics.AUROC(task=task, num_classes=self.hparams.num_classes)
-        self.auc_val_tabular = torchmetrics.AUROC(task=task, num_classes=self.hparams.num_classes)
-        self.auc_test = torchmetrics.AUROC(task=task, num_classes=self.hparams.num_classes)
-        self.auc_test_multimodal = torchmetrics.AUROC(task=task, num_classes=self.hparams.num_classes)
-        self.auc_test_imaging = torchmetrics.AUROC(task=task, num_classes=self.hparams.num_classes)
-        self.auc_test_tabular = torchmetrics.AUROC(task=task, num_classes=self.hparams.num_classes)
+        #self.auc_train = torchmetrics.AUROC(task=task, num_classes=self.hparams.num_classes)
+        #self.auc_val = torchmetrics.AUROC(task=task, num_classes=self.hparams.num_classes)
+        #self.auc_val_multimodal = torchmetrics.AUROC(task=task, num_classes=self.hparams.num_classes)
+        #self.auc_val_imaging = torchmetrics.AUROC(task=task, num_classes=self.hparams.num_classes)
+        #self.auc_val_tabular = torchmetrics.AUROC(task=task, num_classes=self.hparams.num_classes)
+        #self.auc_test = torchmetrics.AUROC(task=task, num_classes=self.hparams.num_classes)
+        #self.auc_test_multimodal = torchmetrics.AUROC(task=task, num_classes=self.hparams.num_classes)
+        #self.auc_test_imaging = torchmetrics.AUROC(task=task, num_classes=self.hparams.num_classes)
+        #self.auc_test_tabular = torchmetrics.AUROC(task=task, num_classes=self.hparams.num_classes)
         
         self.acc_classifier_multi = torchmetrics.Accuracy(task=task, num_classes=self.hparams.num_classes)
         self.acc_classifier_image = torchmetrics.Accuracy(task=task, num_classes=self.hparams.num_classes)
@@ -247,7 +247,6 @@ class STiLModel_MoE(pl.LightningModule):
         B_l = len(y)
         # use augmented image and tabular views
         y_hat_m, y_hat_i, y_hat_t, x_si_enhance, x_si, x_ai, x_st_enhance, x_st, x_at, x_c, y_MoE, MoE_weights = self.model.forward_all(x=[im_views, tab_views], y=y)
-        #print(MoE_weights)
 
         feat_m = torch.cat((x_si_enhance, x_c, x_st_enhance), dim=1)
         feat_m, feat_i, feat_t = self.project_3features(feat_m, x_ai, x_at)
@@ -287,10 +286,10 @@ class STiLModel_MoE(pl.LightningModule):
             self.log(f'MoE.train.weight1', MoE_weights[:, 1], on_epoch=True, on_step=False, batch_size=B_l)
             self.log(f'MoE.train.weight2', MoE_weights[:, 2], on_epoch=True, on_step=False, batch_size=B_l)
             
-            balanced_acc_m = balanced_accuracy(y_true=y.cpu(), y_pred=top1_m.cpu(), num_classes=self.num_classes)
-            balanced_acc_i = balanced_accuracy(y_true=y.cpu(), y_pred=top1_i.cpu(), num_classes=self.num_classes)
-            balanced_acc_t = balanced_accuracy(y_true=y.cpu(), y_pred=top1_t.cpu(), num_classes=self.num_classes)
-            balanced_acc_MoE = balanced_accuracy(y_true=y.cpu(), y_pred=top1_MoE.cpu(), num_classes=self.num_classes)
+            balanced_acc_m = balanced_accuracy_score(y_true=y.cpu(), y_pred=top1_m.cpu())
+            balanced_acc_i = balanced_accuracy_score(y_true=y.cpu(), y_pred=top1_i.cpu())
+            balanced_acc_t = balanced_accuracy_score(y_true=y.cpu(), y_pred=top1_t.cpu())
+            balanced_acc_MoE = balanced_accuracy_score(y_true=y.cpu(), y_pred=top1_MoE.cpu())
             
             self.log(f'multimodal.train.balanced_acc', balanced_acc_m, on_epoch=True, on_step=False, batch_size=B_l)
             self.log(f'image.train.balanced_acc', balanced_acc_i, on_epoch=True, on_step=False, batch_size=B_l)
@@ -342,7 +341,7 @@ class STiLModel_MoE(pl.LightningModule):
         self.log(f"multimodal.train.loss", loss, on_epoch=True, on_step=False, batch_size=B_l)
 
         self.acc_train(prob_MoE, y)
-        self.auc_train(prob_MoE, y)
+        #self.auc_train(prob_MoE, y)
         
         torch.cuda.empty_cache()
         return loss
@@ -366,7 +365,7 @@ class STiLModel_MoE(pl.LightningModule):
         self.log('eval.train.teacher.latent.table.aug_rate', teacher_aug_sum["table_rate"], on_epoch=True, on_step=False)
         
         self.log('eval.train.acc', self.acc_train, on_epoch=True, on_step=False, metric_attribute=self.acc_train)
-        self.log('eval.train.auc', self.auc_train, on_epoch=True, on_step=False, metric_attribute=self.auc_train)
+        #self.log('eval.train.auc', self.auc_train, on_epoch=True, on_step=False, metric_attribute=self.auc_train)
         self.log('classifier.multi.acc', self.acc_classifier_multi, on_epoch=True, on_step=False, metric_attribute=self.acc_classifier_multi)
         self.log('classifier.image.acc', self.acc_classifier_image, on_epoch=True, on_step=False, metric_attribute=self.acc_classifier_image)
         self.log('classifier.tab.acc', self.acc_classifier_tabular, on_epoch=True, on_step=False, metric_attribute=self.acc_classifier_tabular)
@@ -379,7 +378,7 @@ class STiLModel_MoE(pl.LightningModule):
             # self.log('eval.train_pseudo_prototypes.auc', self.auc_train_pseudo_prototypes, on_epoch=True, on_step=False, metric_attribute=self.auc_train_pseudo_prototypes)
             # self.use_pseudo = False
         
-        self.print(f'Epoch {self.current_epoch}: train.acc: {self.acc_train.compute()}, train.auc: {self.auc_train.compute()}')
+        self.print(f'Epoch {self.current_epoch}: train.acc: {self.acc_train.compute()}')
 
         if self.use_ddp:
             dist.barrier()
@@ -426,10 +425,10 @@ class STiLModel_MoE(pl.LightningModule):
         prob_MoE, prob_m_e, prob_i_e, prob_t_e = torch.softmax(y_MoE.detach(), dim=1), torch.softmax(y_m_hat.detach(), dim=1), torch.softmax(y_i_hat.detach(), dim=1), torch.softmax(y_t_hat.detach(), dim=1)
         top1_MoE, top1_m, top1_i, top1_t = torch.argmax(prob_MoE, dim=1), torch.argmax(prob_m_e, dim=1), torch.argmax(prob_i_e, dim=1), torch.argmax(prob_t_e, dim=1)
 
-        balanced_acc_m = balanced_accuracy(y_true=y.cpu(), y_pred=top1_m.cpu(), num_classes=self.num_classes)
-        balanced_acc_i = balanced_accuracy(y_true=y.cpu(), y_pred=top1_i.cpu(), num_classes=self.num_classes)
-        balanced_acc_t = balanced_accuracy(y_true=y.cpu(), y_pred=top1_t.cpu(), num_classes=self.num_classes)
-        balanced_acc_MoE = balanced_accuracy(y_true=y.cpu(), y_pred=top1_MoE.cpu(), num_classes=self.num_classes)
+        balanced_acc_m = balanced_accuracy_score(y_true=y.cpu(), y_pred=top1_m.cpu())
+        balanced_acc_i = balanced_accuracy_score(y_true=y.cpu(), y_pred=top1_i.cpu())
+        balanced_acc_t = balanced_accuracy_score(y_true=y.cpu(), y_pred=top1_t.cpu())
+        balanced_acc_MoE = balanced_accuracy_score(y_true=y.cpu(), y_pred=top1_MoE.cpu())
             
         self.log(f'multimodal.val.balanced_acc', balanced_acc_m, on_epoch=True, on_step=False)
         self.log(f'image.val.balanced_acc', balanced_acc_i, on_epoch=True, on_step=False)
@@ -448,14 +447,14 @@ class STiLModel_MoE(pl.LightningModule):
             
             
         self.acc_val(y_MoE_hat, y)
-        self.auc_val(y_MoE_hat, y)
+        #self.auc_val(y_MoE_hat, y)
         
         self.acc_val_multimodal(y_m_hat, y)
-        self.auc_val_multimodal(y_m_hat, y)
+        #self.auc_val_multimodal(y_m_hat, y)
         self.acc_val_imaging(y_i_hat, y)
-        self.auc_val_imaging(y_i_hat, y)
+        #self.auc_val_imaging(y_i_hat, y)
         self.acc_val_tabular(y_t_hat, y)
-        self.auc_val_tabular(y_t_hat, y)
+        #self.auc_val_tabular(y_t_hat, y)
 
         torch.cuda.empty_cache()
         
@@ -469,48 +468,48 @@ class STiLModel_MoE(pl.LightningModule):
             return  
 
         epoch_acc_val = self.acc_val.compute()
-        epoch_auc_val = self.auc_val.compute()
+        #epoch_auc_val = self.auc_val.compute()
         
         epoch_acc_val_multimodal = self.acc_val_multimodal.compute()
-        epoch_auc_val_multimodal = self.auc_val_multimodal.compute()
+        #epoch_auc_val_multimodal = self.auc_val_multimodal.compute()
         
         epoch_acc_val_imaging = self.acc_val_imaging.compute()
-        epoch_auc_val_imaging = self.auc_val_imaging.compute()
+        #epoch_auc_val_imaging = self.auc_val_imaging.compute()
         epoch_acc_val_tabular = self.acc_val_tabular.compute()
-        epoch_auc_val_tabular = self.auc_val_tabular.compute()
+        #epoch_auc_val_tabular = self.auc_val_tabular.compute()
 
         self.log('eval.val.acc', epoch_acc_val, on_epoch=True, on_step=False, metric_attribute=self.acc_val)
-        self.log('eval.val.auc', epoch_auc_val, on_epoch=True, on_step=False, metric_attribute=self.auc_val)
+        #self.log('eval.val.auc', epoch_auc_val, on_epoch=True, on_step=False, metric_attribute=self.auc_val)
         
         self.log('eval.val.acc_multimodal', epoch_acc_val_multimodal, on_epoch=True, on_step=False, metric_attribute=self.acc_val_multimodal)
-        self.log('eval.val.auc_multimodal', epoch_auc_val_multimodal, on_epoch=True, on_step=False, metric_attribute=self.auc_val_multimodal)
+        #self.log('eval.val.auc_multimodal', epoch_auc_val_multimodal, on_epoch=True, on_step=False, metric_attribute=self.auc_val_multimodal)
         
         self.log('eval.val.acc_imaging', epoch_acc_val_imaging, on_epoch=True, on_step=False, metric_attribute=self.acc_val_imaging)
-        self.log('eval.val.auc_imaging', epoch_auc_val_imaging, on_epoch=True, on_step=False, metric_attribute=self.auc_val_imaging)
+        #self.log('eval.val.auc_imaging', epoch_auc_val_imaging, on_epoch=True, on_step=False, metric_attribute=self.auc_val_imaging)
         self.log('eval.val.acc_tabular', epoch_acc_val_tabular, on_epoch=True, on_step=False, metric_attribute=self.acc_val_tabular)
-        self.log('eval.val.auc_tabular', epoch_auc_val_tabular, on_epoch=True, on_step=False, metric_attribute=self.auc_val_tabular)
+        #self.log('eval.val.auc_tabular', epoch_auc_val_tabular, on_epoch=True, on_step=False, metric_attribute=self.auc_val_tabular)
 
-        self.print(f'Epoch {self.current_epoch}: val.acc: {epoch_acc_val}, val.auc: {epoch_auc_val}, val.acc_multimodal: {epoch_acc_val_multimodal}, val.auc_multimodal: {epoch_auc_val_multimodal}, val.acc_imaging: {epoch_acc_val_imaging}, val.auc_imaging: {epoch_auc_val_imaging}, val.acc_tabular: {epoch_acc_val_tabular}, val.auc_tabular: {epoch_auc_val_tabular}')
+        self.print(f'Epoch {self.current_epoch}: val.acc: {epoch_acc_val}, val.acc_multimodal: {epoch_acc_val_multimodal}, val.acc_imaging: {epoch_acc_val_imaging} val.acc_tabular: {epoch_acc_val_tabular}')
       
         if self.hparams.target == 'dvm':
             if epoch_acc_val > self.best_val_score:
                 self.print(f'Best epoch: {self.current_epoch}')
             self.best_val_score = max(self.best_val_score, epoch_acc_val)
-        else:
-            if epoch_auc_val > self.best_val_score:
-                self.print(f'Best epoch: {self.current_epoch}')
-            self.best_val_score = max(self.best_val_score, epoch_auc_val)
+        #else:
+        #    if epoch_auc_val > self.best_val_score:
+        #        self.print(f'Best epoch: {self.current_epoch}')
+        #    self.best_val_score = max(self.best_val_score, epoch_auc_val)
 
         self.acc_val.reset()
-        self.auc_val.reset()
+        #self.auc_val.reset()
         
         self.acc_val_multimodal.reset()
-        self.auc_val_multimodal.reset()
+        #self.auc_val_multimodal.reset()
         
         self.acc_val_imaging.reset()
-        self.auc_val_imaging.reset()
+        #self.auc_val_imaging.reset()
         self.acc_val_tabular.reset()
-        self.auc_val_tabular.reset()
+        #self.auc_val_tabular.reset()
 
         torch.cuda.empty_cache()
 
@@ -538,10 +537,10 @@ class STiLModel_MoE(pl.LightningModule):
         
         top1_MoE, top1_m, top1_i, top1_t = torch.argmax(y_MoE, dim=1), torch.argmax(y_hat_m, dim=1), torch.argmax(y_hat_i, dim=1), torch.argmax(y_hat_t, dim=1)
         
-        balanced_acc_m = balanced_accuracy(y_true=y.cpu(), y_pred=top1_m.cpu(), num_classes=self.num_classes)
-        balanced_acc_i = balanced_accuracy(y_true=y.cpu(), y_pred=top1_i.cpu(), num_classes=self.num_classes)
-        balanced_acc_t = balanced_accuracy(y_true=y.cpu(), y_pred=top1_t.cpu(), num_classes=self.num_classes)
-        balanced_acc_MoE = balanced_accuracy(y_true=y.cpu(), y_pred=top1_MoE.cpu(), num_classes=self.num_classes)
+        balanced_acc_m = balanced_accuracy_score(y_true=y.cpu(), y_pred=top1_m.cpu())
+        balanced_acc_i = balanced_accuracy_score(y_true=y.cpu(), y_pred=top1_i.cpu())
+        balanced_acc_t = balanced_accuracy_score(y_true=y.cpu(), y_pred=top1_t.cpu())
+        balanced_acc_MoE = balanced_accuracy_score(y_true=y.cpu(), y_pred=top1_MoE.cpu())
             
         self.log(f'multimodal.test.balanced_acc', balanced_acc_m, on_epoch=True, on_step=False)
         self.log(f'image.test.balanced_acc', balanced_acc_i, on_epoch=True, on_step=False)
@@ -556,38 +555,38 @@ class STiLModel_MoE(pl.LightningModule):
             y_MoE = y_MoE[:,1]
 
         self.acc_test(y_MoE, y)
-        self.auc_test(y_MoE, y)
+        #self.auc_test(y_MoE, y)
         
         self.acc_test_multimodal(y_hat_m, y)
-        self.auc_test_multimodal(y_hat_m, y)
+        #self.auc_test_multimodal(y_hat_m, y)
         
         self.acc_test_imaging(y_hat_i, y)
-        self.auc_test_imaging(y_hat_i, y)
+        #self.auc_test_imaging(y_hat_i, y)
         
         self.acc_test_tabular(y_hat_t, y)
-        self.auc_test_tabular(y_hat_t, y)
+        #self.auc_test_tabular(y_hat_t, y)
 
     def test_epoch_end(self, _) -> None:
         """
         Test epoch end
         """
         test_acc = self.acc_test.compute()
-        test_auc = self.auc_test.compute()
+        #test_auc = self.auc_test.compute()
         test_acc_multimodal = self.acc_test_multimodal.compute()
-        test_auc_multimodal = self.auc_test_multimodal.compute()
+        #test_auc_multimodal = self.auc_test_multimodal.compute()
         test_acc_imaging = self.acc_test_imaging.compute()
-        test_auc_imaging = self.auc_test_imaging.compute()
+        #test_auc_imaging = self.auc_test_imaging.compute()
         test_acc_tabular = self.acc_test_tabular.compute()
-        test_auc_tabular = self.auc_test_tabular.compute()
+        #test_auc_tabular = self.auc_test_tabular.compute()
 
         self.log('test.acc', test_acc)
-        self.log('test.auc', test_auc)
+        #self.log('test.auc', test_auc)
         self.log('test.acc_multimodal', test_acc_multimodal)
-        self.log('test.auc_multimodal', test_auc_multimodal)
+        #self.log('test.auc_multimodal', test_auc_multimodal)
         self.log('test.acc_imaging', test_acc_imaging)
-        self.log('test.auc_imaging', test_auc_imaging)
+        #self.log('test.auc_imaging', test_auc_imaging)
         self.log('test.acc_tabular', test_acc_tabular)
-        self.log('test.auc_tabular', test_auc_tabular)
+        #self.log('test.auc_tabular', test_auc_tabular)
     
     def calc_and_log_train_embedding_acc(self, logits, labels, modality: str) -> None:
         self.top1_acc_train(logits, labels)

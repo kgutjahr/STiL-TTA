@@ -77,10 +77,10 @@ class DisCoAttentionBackbone(nn.Module):
         else:
             if self.cut_classifier_input:
                 
-                self.classifier_gate = MLP(in_dim=self.hidden_dim*3, hidden_dim=int(self.hidden_dim*1.5), out_dim=args.num_classes)
+                self.classifier_gate = MLP(in_dim=self.hidden_dim*3, hidden_dim=int(self.hidden_dim*1.5), out_dim=3)
                 #self.classifier_gate = nn.Linear(self.hidden_dim*3, 3)
             else:
-                self.classifier_gate = MLP(in_dim=self.hidden_dim*5, hidden_dim=int(self.hidden_dim*2.5), out_dim=args.num_classes)
+                self.classifier_gate = MLP(in_dim=self.hidden_dim*5, hidden_dim=int(self.hidden_dim*2.5), out_dim=3)
                 #self.classifier_gate = nn.Linear(self.hidden_dim*5, 3)
 
             self.classifier_multimodal = nn.Linear(self.hidden_dim*3, args.num_classes)

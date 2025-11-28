@@ -9,9 +9,9 @@ run_eval: True
 comment: None
 
 seeds: 
-  - 2022
-  - 2023
-  - 2024
+  - 2022 # first runs
+  - 2023 # second run
+  - 2024 # third run
   - 2025
   - 2026
 lr_finder_lrs: 
@@ -35,6 +35,10 @@ sweep: False
 train_logit_consent: True
 cut_classifier_input: True
 replace_ce_loss: False
+
+MoE_gate_noise:
+MoE_k:
+omega:
 
 algorithm_name: STiL_train_consent
 pretrained_model: TIP
@@ -134,6 +138,7 @@ datatype: imaging_and_tabular
 eval_datatype: imaging_and_tabular
 
 # General
+precision: "mixed"
 seed: 2022
 max_epochs: 500
 log_images: False
