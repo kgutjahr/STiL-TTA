@@ -115,16 +115,15 @@ def random_noise(x: torch.Tensor, rate: float, min_range: float, max_range: floa
         return x
     gen = torch.Generator(device=x.device).manual_seed(seed)
     
+    batch_std = x.std(dim=0, unbiased=False)
+    
     sample_size = x.size()[1:]
     random_indices = idx if idx is not None else get_random_idx(batch_size=x.size()[0], rate=rate, seed=seed)
     z = x.clone()
     for i in random_indices:
         # addition
-        rand_sample_add = (min_range - max_range) * torch.rand(size=sample_size, generator=gen, device=x.device) + max_range
+        rand_sample_add = torch.randn(size=sample_size, generator=gen, device=x.device) * batch_std
         z[i] = x[i] + rand_sample_add
-        # multiplication
-        rand_sample_mul = (min_range - max_range) * torch.rand(size=sample_size, generator=gen, device=x.device) + max_range
-        z[i] = x[i] * rand_sample_mul
     return z
 
 def mixstyle(x: torch.Tensor, rate: float, alpha: float, seed: int, idx = None) -> torch.Tensor:
