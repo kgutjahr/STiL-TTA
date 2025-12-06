@@ -70,22 +70,23 @@ class DisCoAttentionBackbone(nn.Module):
                             ])
         
         self.MoE_k = args.MoE_k
+        self.num_experts = args.num_experts
         self.MoE_gate_noise = args.MoE_gate_noise
+        self.num_classes = args.num_classes
         
         if args.pretrain == True and args.checkpoint is None:
             print('Pretrain model does not have aggregation and classifier')
         else:
-            if self.cut_classifier_input:
-                
-                self.classifier_gate = MLP(in_dim=self.hidden_dim*3, hidden_dim=int(self.hidden_dim*1.5), out_dim=3)
-                #self.classifier_gate = nn.Linear(self.hidden_dim*3, 3)
-            else:
-                self.classifier_gate = MLP(in_dim=self.hidden_dim*5, hidden_dim=int(self.hidden_dim*2.5), out_dim=3)
-                #self.classifier_gate = nn.Linear(self.hidden_dim*5, 3)
+            #self.classifier_gate = MLP(in_dim=self.hidden_dim*5, hidden_dim=int(self.hidden_dim*2.5), out_dim=3)
+            self.classifier_gate = nn.Linear(self.hidden_dim, self.num_experts)
 
-            self.classifier_multimodal = nn.Linear(self.hidden_dim*3, args.num_classes)
-            self.classifier_imaging = nn.Linear(self.hidden_dim*2, args.num_classes)
-            self.classifier_tabular = nn.Linear(self.hidden_dim*2, args.num_classes)    
+            self.expert_list = nn.ModuleList(
+            [nn.Linear(self.hidden_dim, args.num_classes) 
+             for _ in range(self.num_experts)]
+        )
+            #self.classifier_multimodal = nn.Linear(self.hidden_dim*3, args.num_classes)
+            #self.classifier_imaging = nn.Linear(self.hidden_dim*2, args.num_classes)
+            #self.classifier_tabular = nn.Linear(self.hidden_dim*2, args.num_classes)    
             # MoE Classifier Gate
             
         if args.checkpoint: 
@@ -176,16 +177,21 @@ class DisCoAttentionBackbone(nn.Module):
             gate_logits = gate_logits + MoE_noise
 
         top_k_logits, top_k_indices = torch.topk(
-            gate_logits, self.MoE_k, dim=1
+            gate_logits, self.MoE_k, dim=-1
         )
         # Apply softmax to top-k logits for weights
-        top_k_weights = F.softmax(top_k_logits, dim=1)
+        top_k_weights = F.softmax(top_k_logits, dim=-1)
         
         # Create a sparse weight matrix for combining outputs
         full_weights = torch.zeros_like(gate_logits)
-        full_weights.scatter_(1, top_k_indices, top_k_weights)
+        full_weights.scatter_(-1, top_k_indices, top_k_weights)
         
-        return full_weights, top_k_indices # Return weights and indices
+        if training:
+            load_loss = self.load_balancing_loss(router_logits=full_weights)
+        else:
+            load_loss = 0
+        
+        return full_weights, top_k_indices, load_loss # Return weights and indices
 
     def forward_all(self, x: torch.Tensor, y: torch.Tensor, visualize=False) -> torch.Tensor:
         x_si, x_ai, x_st, x_at = self.forward_encoding_feature(x)
@@ -224,50 +230,34 @@ class DisCoAttentionBackbone(nn.Module):
                 #x_c = self.augment(aug_modality_list=aug_modality_list, input_vec=x_c, modality="multimodal", y=y)
                 #multimodal_input = torch.cat([x_si_enhance, x_c, x_st_enhance], dim=1)
 
-        if self.cut_classifier_input:
-            gate_input = multimodal_input
-        else:
-            gate_input = torch.cat([x_ai, multimodal_input, x_at], dim=1)
+        #if self.cut_classifier_input:
+        #    gate_input = multimodal_input
+        #else:
+        gate_input_list = [x_ai, x_si_enhance, x_c, x_st_enhance, x_at]
+        gate_input = torch.stack(gate_input_list, dim=1)
+        B, T, _ = gate_input.shape
 
-        MoE_w, _ = self.run_gate(x=gate_input, training=True)
-
-        out_m = self.classifier_multimodal(multimodal_input)
-        out_i = self.classifier_imaging(imaging_input)
-        out_t = self.classifier_tabular(tabular_input)
+        MoE_w, MoE_indices, load_loss = self.run_gate(x=gate_input, training=True)
         
-        # Stack classifier outputs: shape [b, 3, num_classes]
-        logits = torch.stack([out_m, out_i, out_t], dim=1)
+        #MoE_result, expert_results = self.apply_weighted_experts(tokens=gate_input, weights=MoE_w)
+        MoE_result, expert_results = self.apply_weighted_experts_fast(tokens=gate_input, weights=MoE_w)
         
-        # weights: [b, 3] → [b, 3, 1] for broadcasting
-        combined_logits = torch.sum(MoE_w.unsqueeze(-1) * logits, dim=1)
-        
-        return out_m, out_i, out_t, x_si_enhance, torch.mean(x_si,dim=1), x_ai, x_st_enhance, torch.mean(x_st,dim=1), x_at, x_c, combined_logits, MoE_w
+        return expert_results, x_si_enhance, torch.mean(x_si,dim=1), x_ai, x_st_enhance, torch.mean(x_st,dim=1), x_at, x_c, MoE_result, MoE_w, load_loss
     
 
     def forward(self, x: torch.Tensor, visualize=False) -> torch.Tensor:
         x_si, x_ai, x_st, x_at = self.forward_encoding_feature(x)
         x_si_enhance, x_ai, x_st_enhance, x_at, x_c = self.forward_multimodal_feature(x_si, x_ai, x_st, x_at)
         
-        imaging_input = torch.cat([x_si_enhance, x_ai], dim=1)
-        tabular_input = torch.cat([x_st_enhance, x_at], dim=1)
-        multimodal_input = torch.cat([x_si_enhance, x_c, x_st_enhance], dim=1)      
+        gate_input_list = [x_ai, x_si_enhance, x_c, x_st_enhance, x_at]
+        gate_input = torch.stack(gate_input_list, dim=1)
+        B, T, _ = gate_input.shape
+
+        MoE_w, MoE_indices, _ = self.run_gate(x=gate_input, training=False)
         
-        if self.cut_classifier_input:           
-            gate_input = multimodal_input
-        else:
-            gate_input = torch.cat([x_ai, multimodal_input, x_at], dim=1)
+        MoE_result, expert_results = self.apply_weighted_experts(tokens=gate_input, weights=MoE_w)
         
-        MoE_w, _ = self.run_gate(x=gate_input, training=False)
-        
-        out_m = self.classifier_multimodal(multimodal_input)
-        out_i = self.classifier_imaging(imaging_input)
-        out_t = self.classifier_tabular(tabular_input)
-        
-        logits = torch.stack([out_m, out_i, out_t], dim=1)
-        
-        combined_logits = torch.sum(MoE_w.unsqueeze(-1) * logits, dim=1)
-        
-        return out_m, out_i, out_t, x_si_enhance, x_ai, x_st_enhance, x_at, x_c, combined_logits, MoE_w
+        return expert_results, x_si_enhance, x_ai, x_st_enhance, x_at, x_c, MoE_result, MoE_w
 
     def run_augmentations(self, x: torch.Tensor, y: torch.Tensor, augment_dict: dict, repeat_idx: list = []) -> torch.Tensor:
         if len(augment_dict) == 0:
@@ -311,6 +301,97 @@ class DisCoAttentionBackbone(nn.Module):
                 elif m["name"] == "extrapolation":
                     m["idx"] = latentAug.get_idx_pairs(x=shared_t, y=y, sample_randomly=m["sample_randomly"], seed=m["seed"], rate=m["rate"]) 
         return aug_modality_list
+    
+    def apply_weighted_experts(self, tokens, weights):
+        # tokens:  [B, N, D]
+        # weights: [B, N, K]
+        B, N, D = tokens.shape
+        K = len(self.expert_list)
+
+        # allocate output buffer: [B, N, H]
+        output = torch.zeros(B, N, self.num_classes, device=tokens.device)
+        
+        expert_outputs = [torch.zeros(B, N, self.num_classes, device=tokens.device) for _ in range(K)]
+        
+
+        for b in range(B):
+            tok = tokens[b]      # [N, D]
+            w   = weights[b]     # [N, K]
+
+            for k in range(K):
+                mask = w[:, k] != 0
+                if not mask.any():
+                    continue
+
+                selected_tokens = tok[mask]           # [M, D]
+
+                # run MLP only on the needed tokens
+                mlp_result = self.expert_list[k](selected_tokens) # [M, H]
+
+                # apply weights
+                weighted = mlp_result * w[mask, k].unsqueeze(-1)
+
+                # scatter back into batch output
+                output[b, mask] += weighted
+                
+                expert_outputs[k][b, mask] = mlp_result
+                
+        # summarize token results
+        output_mean = output.mean(dim=1)
+        expert_mean = [expert_output.mean(dim=1) for expert_output in expert_outputs]
+        return output_mean, expert_mean
+    
+    def apply_weighted_experts_fast(self, tokens, weights):
+        # tokens:  [B, N, D]
+        # weights: [B, N, K]
+        B, N, D = tokens.shape
+        K = len(self.expert_list)
+        H = self.num_classes
+
+        # 1. Run all experts on all tokens
+        # Stack expert MLP outputs: [K, B, N, H]
+        expert_outputs = torch.stack([expert(tokens) for expert in self.expert_list], dim=0)
+
+        # 2. Apply weights
+        # weights: [B, N, K] -> [K, B, N, 1] for broadcasting
+        #print(weights.permute(2, 0, 1).unsqueeze(-1))
+        weighted_outputs = expert_outputs * weights.permute(2, 0, 1).unsqueeze(-1)
+
+        # 3. Sum across experts
+        # [K, B, N, H] -> [B, N, H]
+        output = weighted_outputs.sum(dim=0)
+
+        # 4. Summarize token results
+        output_mean = output.mean(dim=1)  # [B, H]
+
+        # 5. Compute per-expert mean
+        expert_mean = [expert_outputs[k].mean(dim=1) for k in range(K)]  # list of [B, H]
+
+        return output_mean, expert_mean
+
+    def load_balancing_loss(self, router_logits):
+        """
+        router_logits: (batch, seq_len, num_experts)
+        router_indices: (batch, seq_len)
+        """
+        B, S, E = router_logits.shape
+    
+        # Softmax probabilities over experts
+        router_probs = F.softmax(router_logits, dim=-1)
+        router_indices = torch.argmax(router_logits, dim=-1)
+    
+        # 1) Fraction of probability mass to each expert
+        # Sum over tokens, average across all tokens
+        prob_per_expert = router_probs.sum(dim=(0, 1)) / (B * S)
+    
+        # 2) Fraction of actual routed tokens per expert (argmax)
+        routed_one_hot = F.one_hot(router_indices, num_classes=E).float()
+        tokens_per_expert = routed_one_hot.sum(dim=(0, 1)) / (B * S)
+    
+        # Switch Transformer auxiliary loss
+        loss = E * torch.sum(tokens_per_expert * prob_per_expert)
+    
+        return loss
 
 if __name__ == "__main__":
   args = DotDict({'model': 'resnet50', 'checkpoint': None, 'algorithm_name': 'DISCO',
@@ -333,3 +414,4 @@ if __name__ == "__main__":
   y = model.forward_all(x=(x_i,x_t))
   for item in y:
       print(item.shape)
+

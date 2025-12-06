@@ -32,11 +32,11 @@ num_workers: 10
 sweep: False
 
 # MoE
-MoE_k: 2
-omega: 0.5
-num_experts: 3
+MoE_k: 1
+omega: 0.01
 cut_classifier_input: True
 MoE_gate_noise: False
+num_experts: 3
 train_logit_consent:
 replace_ce_loss:
 
@@ -138,6 +138,7 @@ datatype: imaging_and_tabular
 eval_datatype: imaging_and_tabular
 
 # General
+precision: "full"
 seed: 2022
 max_epochs: 500
 log_images: False

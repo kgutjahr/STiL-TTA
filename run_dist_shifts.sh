@@ -59,17 +59,17 @@ run_experiment () {
 
 
 # Experiment
-CONFIGS=("config_dvm_STiL_consent_0.1")
-DATASETS=("TIP/dvm_all_server_reordered_SemiPseudo_TIP_normal" "TIP/dvm_all_server_reordered_SemiPseudo_TIP_black" "TIP/dvm_all_server_reordered_SemiPseudo_TIP_miles" "TIP/dvm_all_server_reordered_SemiPseudo_TIP_color_miles")
+CONFIGS=("config_dvm_STiL_MoE_0.5_3" "config_dvm_STiL_MoE_2_3")
+DATASETS=("TIP/dvm_all_server_reordered_SemiPseudo_TIP_black" "TIP/dvm_all_server_reordered_SemiPseudo_TIP_miles" "TIP/dvm_all_server_reordered_SemiPseudo_TIP_normal" "TIP/dvm_all_server_reordered_SemiPseudo_TIP_color_miles")
 BATCHSIZES=(512)
 DEVICE=0
 REPEAT=1
-RESULT_DIR="DVM/baseline"
+RESULT_DIR="DVM/MoE3-MLP"
 declare -A EXTRA_PARAMS=(
   ["cut_classifier_input"]=False
   ["train_logit_consent"]=False
   ["replace_ce_loss"]=False
-  ["seed"]=2024
+  ["seed"]=2023
 )
 
 

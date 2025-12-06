@@ -34,6 +34,7 @@ sweep: False
 # MoE
 MoE_k: 3
 omega: 0.5
+num_experts: 3
 cut_classifier_input: True
 MoE_gate_noise: False
 train_logit_consent:

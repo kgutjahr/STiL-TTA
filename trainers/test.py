@@ -82,6 +82,9 @@ def test(hparams, wandb_logger=None):
     elif hparams.algorithm_name == "STiL_train_consent":
         from models.Disentangle.STiLModel_train_consent import STiLModel_Consent
         model = STiLModel_Consent(hparams)
+    elif hparams.algorithm_name == "STiL_MoE_Switch":
+        from models.Disentangle.STiLModel_MoE_Switch import STiLModel_MoE_Switch
+        model = STiLModel_MoE_Switch(hparams)
     elif hparams.algorithm_name == "STiL_MoE":
         from models.Disentangle.STiLModel_MoE import STiLModel_MoE
         model = STiLModel_MoE(hparams)

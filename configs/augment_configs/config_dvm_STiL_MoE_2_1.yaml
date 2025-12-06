@@ -36,6 +36,7 @@ MoE_k: 1
 omega: 2.0
 cut_classifier_input: True
 MoE_gate_noise: False
+num_experts: 3
 train_logit_consent:
 replace_ce_loss:
 

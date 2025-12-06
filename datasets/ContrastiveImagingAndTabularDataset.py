@@ -29,6 +29,12 @@ def convert_to_ts_01(x, **kwargs):
   x = x.permute(2,0,1)
   return x
 
+def convert_to_ts_02(x, **kwargs):
+  x = torch.from_numpy(x).float()
+  x = x.unsqueeze(0)
+  x = x.repeat(3, 1, 1)
+  return x
+
 
 class ContrastiveImagingAndTabularDataset(Dataset):
   """
@@ -66,6 +72,7 @@ class ContrastiveImagingAndTabularDataset(Dataset):
         im[0,:,:] = 0
 
     if augmentation_speedup:
+      print(self.target)
       if self.target == 'dvm':
         self.default_transform = A.Compose([
           A.Resize(height=img_size, width=img_size),
@@ -75,7 +82,7 @@ class ContrastiveImagingAndTabularDataset(Dataset):
       elif self.target == 'Infarction' or self.target == 'CAD' or self.target == 'adni':
         self.default_transform = A.Compose([
           A.Resize(height=img_size, width=img_size),
-          A.Lambda(name='convert2tensor', image=convert_to_ts_01)
+          A.Lambda(name='convert2tensor', image=convert_to_ts_02 if self.target == "adni" else convert_to_ts_01)
         ])
         print(f'Using cardiac transform for default transform in ContrastiveImagingAndTabularDataset')
       else:
@@ -191,6 +198,7 @@ class ContrastiveImagingAndTabularDataset(Dataset):
     if random.random() < self.augmentation_rate:
       ims.append(self.transform(image=im)['image'] if self.augmentation_speedup else self.transform(im))
     else:
+      print(self.default_transform(image=im)['image'])
       ims.append(self.default_transform(image=im)['image'] if self.augmentation_speedup else self.default_transform(im))
 
     orig_im = self.default_transform(image=im)['image'] if self.augmentation_speedup else self.default_transform(im)
