@@ -38,6 +38,7 @@ cut_classifier_input: True
 MoE_gate_noise: False
 train_logit_consent:
 replace_ce_loss:
+linear_gate: true
 
 algorithm_name: STiL_MoE
 pretrained_model: TIP

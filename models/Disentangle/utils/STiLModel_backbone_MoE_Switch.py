@@ -73,12 +73,15 @@ class DisCoAttentionBackbone(nn.Module):
         self.num_experts = args.num_experts
         self.MoE_gate_noise = args.MoE_gate_noise
         self.num_classes = args.num_classes
+        self.linear_gate = args.linear_gate
         
         if args.pretrain == True and args.checkpoint is None:
             print('Pretrain model does not have aggregation and classifier')
         else:
-            #self.classifier_gate = MLP(in_dim=self.hidden_dim*5, hidden_dim=int(self.hidden_dim*2.5), out_dim=3)
-            self.classifier_gate = nn.Linear(self.hidden_dim, self.num_experts)
+            if not self.linear_gate:
+                self.classifier_gate = MLP(in_dim=self.hidden_dim*5, hidden_dim=int(self.hidden_dim*2.5), out_dim=3)
+            else:
+                self.classifier_gate = nn.Linear(self.hidden_dim, self.num_experts)
 
             self.expert_list = nn.ModuleList(
             [nn.Linear(self.hidden_dim, args.num_classes) 

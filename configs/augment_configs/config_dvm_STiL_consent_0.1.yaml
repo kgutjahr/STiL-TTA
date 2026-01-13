@@ -32,8 +32,8 @@ num_workers: 10
 sweep: False
 
 # consent
-train_logit_consent: True
-cut_classifier_input: True
+train_logit_consent: False
+cut_classifier_input: False
 replace_ce_loss: False
 
 MoE_gate_noise:

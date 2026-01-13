@@ -55,6 +55,7 @@ class DisCoAttentionBackbone(nn.Module):
         self.hidden_dim = args.multimodal_embedding_dim
         self.augmentation_dict = args.latent_augmentation
         self.cut_classifier_input = args.cut_classifier_input
+        self.linear_gate = args.linear_gate
         
         self.aug_summarizer = aug_summarizer
 
@@ -76,12 +77,15 @@ class DisCoAttentionBackbone(nn.Module):
             print('Pretrain model does not have aggregation and classifier')
         else:
             if self.cut_classifier_input:
-                
-                self.classifier_gate = MLP(in_dim=self.hidden_dim*3, hidden_dim=int(self.hidden_dim*1.5), out_dim=3)
-                #self.classifier_gate = nn.Linear(self.hidden_dim*3, 3)
+                if not self.linear_gate:
+                    self.classifier_gate = MLP(in_dim=self.hidden_dim*3, hidden_dim=int(self.hidden_dim*1.5), out_dim=3)
+                else:
+                    self.classifier_gate = nn.Linear(self.hidden_dim*3, 3)
             else:
-                self.classifier_gate = MLP(in_dim=self.hidden_dim*5, hidden_dim=int(self.hidden_dim*2.5), out_dim=3)
-                #self.classifier_gate = nn.Linear(self.hidden_dim*5, 3)
+                if not self.linear_gate:
+                    self.classifier_gate = MLP(in_dim=self.hidden_dim*5, hidden_dim=int(self.hidden_dim*2.5), out_dim=3)
+                else:
+                    self.classifier_gate = nn.Linear(self.hidden_dim*5, 3)
 
             self.classifier_multimodal = nn.Linear(self.hidden_dim*3, args.num_classes)
             self.classifier_imaging = nn.Linear(self.hidden_dim*2, args.num_classes)
@@ -228,6 +232,8 @@ class DisCoAttentionBackbone(nn.Module):
             gate_input = multimodal_input
         else:
             gate_input = torch.cat([x_ai, multimodal_input, x_at], dim=1)
+            
+        print(x_ai.size())
 
         MoE_w, _ = self.run_gate(x=gate_input, training=True)
 

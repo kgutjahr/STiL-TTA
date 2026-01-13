@@ -37,6 +37,11 @@ strategy: semisl
 dataset_name: dvm
 exp_name: NA
 
+train_logit_consent: False
+cut_classifier_input: False
+replace_ce_loss: False
+epsilon: 0.0
+
 wandb_project: Disentangle
 sql_address: 
 

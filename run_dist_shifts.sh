@@ -59,14 +59,19 @@ run_experiment () {
 
 
 # Experiment
-CONFIGS=("config_dvm_STiL_input_nothing_latent_all_noise.yaml" "config_dvm_STiL_input_nothing_latent_image_noise.yaml" "config_dvm_STiL_input_nothing_latent_tabular_noise.yaml" "config_dvm_STiL_input_nothing_latent_multi_noise.yaml")
-DATASETS=("dvm_all_server_reordered_SemiPseudo_0.1_black.yaml" "dvm_all_server_reordered_SemiPseudo_0.1_miles.yaml" "dvm_all_server_reordered_SemiPseudo_0.1_normal.yaml" "dvm_all_server_reordered_SemiPseudo_0.1_color_miles.yaml")
-BATCHSIZES=(512)
-DEVICE=1
+CONFIGS=("config_dvm_STiL_MoE_0.1_3" "config_dvm_STiL_MoE_0.5_3" "config_dvm_STiL_MoE_1_3" "config_dvm_STiL_MoE_2_3" "config_dvm_STiL_MoE_3_3")
+DATASETS=("ADNI/adni_normal_final" "ADNI/adni_age_final" "ADNI/adni_weight_final" "ADNI/adni_TE_final")
+BATCHSIZES=(32)
+DEVICE=0
 REPEAT=1
-RESULT_DIR="latent_augmentation_results/latent_only_before_classifier_whole"
+RESULT_DIR="ADNI/final_dataset/MoE3-linear"
 declare -A EXTRA_PARAMS=(
-  ["max_epochs"]=500
+  ["max_epochs"]=350
+  ["cut_classifier_input"]=False
+  ["train_logit_consent"]=False
+  ["replace_ce_loss"]=False
+  ["seed"]=2024
+  ["linear_gate"]=True
 )
 
 

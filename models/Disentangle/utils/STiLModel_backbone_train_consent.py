@@ -205,7 +205,16 @@ class DisCoAttentionBackbone(nn.Module):
         out_i = self.classifier_imaging(imaging_input)
         out_t = self.classifier_tabular(tabular_input)
         return out_m, out_i, out_t, x_si_enhance, torch.mean(x_si,dim=1), x_ai, x_st_enhance, torch.mean(x_st,dim=1), x_at, x_c
-    
+
+
+    def forward_return_raw_emb(self, x: torch.Tensor, y: torch.Tensor, visualize=False) -> torch.Tensor:
+        x_i, x_t = x[0], x[1]
+        x_i = self.encoder_imaging(x_i)[-1]   # (B,C,H,W)
+        if len(x_i.shape) == 4:
+            B,C,H,W = x_i.shape
+            x_i = x_i.reshape(B,C,H*W).permute(0,2,1)
+        x_t = self.encoder_tabular(x_t)
+        return x_i, x_t
 
     def forward(self, x: torch.Tensor, visualize=False) -> torch.Tensor:
         x_si, x_ai, x_st, x_at = self.forward_encoding_feature(x)
