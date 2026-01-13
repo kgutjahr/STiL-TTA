@@ -19,6 +19,7 @@ from datasets.ContrastiveImagingAndTabularDataset import ContrastiveImagingAndTa
 from datasets.ImagingAndTabularDatasetMissing import ImagingAndTabularDatasetMissing
 from datasets.StrongWeakImagingAndTabularDataset import StrongWeakImagingAndTabularDataset
 from utils.utils import grab_arg_from_checkpoint, grab_image_augmentations, grab_hard_eval_image_augmentations, grab_wids, create_logdir
+from utils.EpochLossLogger import LossMetricsLogger
 
 def load_datasets(hparams):
     if hparams.eval_datatype=='imaging':
@@ -218,6 +219,18 @@ def evaluate(hparams, wandb_logger):
     callbacks.append(EarlyStopping(monitor=f'eval.val.{hparams.eval_metric}', min_delta=0.0001, patience=hparams.early_stop_patience, verbose=False, mode=mode))
     if hparams.use_wandb:
         callbacks.append(LearningRateMonitor(logging_interval='epoch'))
+        
+
+    train_metrics = ["multimodal.train.MoEloss", "multimodal.train.loss", "multimodal.train.CEloss", "multimodal.train.ITCloss", "multimodal.train.CLUBloss_imaging", "multimodal.train.CLUBloss_imaging_est", "multimodal.train.CLUBloss_tabular", "multimodal.train.CLUBloss_tabular_est"]
+    val_metrics = ["multimodal.val.loss", "multimodal.val.CEloss", "multimodal.val.CLUBloss_tabular_est", "multimodal.val.CLUBloss_tabular", "multimodal.val.CLUBloss_imaging_est", "multimodal.val.CLUBloss_imaging"]
+
+    loss_callback = LossMetricsLogger(
+        train_metrics=train_metrics,
+        val_metrics=val_metrics,
+        train_filename=os.path.join(logdir, "train_loss_metrics.csv"),
+        val_filename=os.path.join(logdir, "val_loss_metrics.csv")
+    )
+    callbacks.append(loss_callback)
 
     trainer = Trainer.from_argparse_args(hparams, accelerator=trainer_accelerator, gpus=cuda_visible_devices, callbacks=callbacks, logger=wandb_logger, max_epochs=hparams.max_epochs, check_val_every_n_epoch=hparams.check_val_every_n_epoch, val_check_interval=hparams.val_check_interval, limit_train_batches=hparams.limit_train_batches, limit_val_batches=hparams.limit_val_batches, limit_test_batches=hparams.limit_test_batches, detect_anomaly=True)
     trainer.fit(model, train_loader, val_loader)

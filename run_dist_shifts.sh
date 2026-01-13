@@ -59,17 +59,14 @@ run_experiment () {
 
 
 # Experiment
-CONFIGS=("config_dvm_STiL_MoE_0.5_3" "config_dvm_STiL_MoE_2_3")
-DATASETS=("TIP/dvm_all_server_reordered_SemiPseudo_TIP_black" "TIP/dvm_all_server_reordered_SemiPseudo_TIP_miles" "TIP/dvm_all_server_reordered_SemiPseudo_TIP_normal" "TIP/dvm_all_server_reordered_SemiPseudo_TIP_color_miles")
+CONFIGS=("config_dvm_STiL_input_nothing_latent_all_noise.yaml" "config_dvm_STiL_input_nothing_latent_image_noise.yaml" "config_dvm_STiL_input_nothing_latent_tabular_noise.yaml" "config_dvm_STiL_input_nothing_latent_multi_noise.yaml")
+DATASETS=("dvm_all_server_reordered_SemiPseudo_0.1_black.yaml" "dvm_all_server_reordered_SemiPseudo_0.1_miles.yaml" "dvm_all_server_reordered_SemiPseudo_0.1_normal.yaml" "dvm_all_server_reordered_SemiPseudo_0.1_color_miles.yaml")
 BATCHSIZES=(512)
-DEVICE=0
+DEVICE=1
 REPEAT=1
-RESULT_DIR="DVM/MoE3-MLP"
+RESULT_DIR="latent_augmentation_results/latent_only_before_classifier_whole"
 declare -A EXTRA_PARAMS=(
-  ["cut_classifier_input"]=False
-  ["train_logit_consent"]=False
-  ["replace_ce_loss"]=False
-  ["seed"]=2023
+  ["max_epochs"]=500
 )
 
 

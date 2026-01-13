@@ -15,6 +15,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.distributed as dist
 from sklearn.metrics import balanced_accuracy_score
+import wandb
 
 from lightly.models.modules import SimCLRProjectionHead
 from pl_bolts.optimizers.lr_scheduler import LinearWarmupCosineAnnealingLR
@@ -314,7 +315,6 @@ class STiLModel_MoE(pl.LightningModule):
         loss_ce = self.criterion_ce(y_hat_m, y) + self.criterion_ce(y_hat_i, y) + self.criterion_ce(y_hat_t, y)
         self.log(f"multimodal.train.CEloss", loss_ce, on_epoch=True, on_step=False, batch_size=B_l)
 
-
         # ============================= itc loss =======================================
         loss_itc, logits, labels = self.criterion_itc(feat_i, feat_t)
         self.log(f"multimodal.train.ITCloss", loss_itc, on_epoch=True, on_step=False, batch_size=B_l)
@@ -335,9 +335,10 @@ class STiLModel_MoE(pl.LightningModule):
         MoE_importance = torch.sum(MoE_weights, dim=0)
         MoE_CV = MoE_importance.std() / MoE_importance.mean()
         loss_load_balancing = torch.pow(MoE_CV, 2)
-        self.log(f"multimodal.train.MoEloss", loss_load_balancing, on_epoch=True, on_step=False, batch_size=B_l)
+        loss_moe = loss_load_balancing + self.criterion_ce(y_MoE, y)
+        self.log(f"multimodal.train.MoEloss", loss_moe, on_epoch=True, on_step=True, batch_size=B_l)
 
-        loss = self.alpha*loss_ce + self.beta*loss_itc + self.gamma*(loss_clubi + loss_club_i_est + loss_club_t + loss_club_t_est) + self.omega*loss_load_balancing
+        loss = self.alpha*loss_ce + self.beta*loss_itc + self.gamma*(loss_clubi + loss_club_i_est + loss_club_t + loss_club_t_est) + self.omega*loss_moe
         self.log(f"multimodal.train.loss", loss, on_epoch=True, on_step=False, batch_size=B_l)
 
         self.acc_train(prob_MoE, y)
@@ -364,7 +365,7 @@ class STiLModel_MoE(pl.LightningModule):
         self.log('eval.train.teacher.latent.image.aug_rate', teacher_aug_sum["image_rate"], on_epoch=True, on_step=False)
         self.log('eval.train.teacher.latent.table.aug_rate', teacher_aug_sum["table_rate"], on_epoch=True, on_step=False)
         
-        self.log('eval.train.acc', self.acc_train, on_epoch=True, on_step=False, metric_attribute=self.acc_train)
+        self.log('eval.train.acc', self.acc_train, on_epoch=True, on_step=False, metric_attribute=self.acc_train, )
         #self.log('eval.train.auc', self.auc_train, on_epoch=True, on_step=False, metric_attribute=self.auc_train)
         self.log('classifier.multi.acc', self.acc_classifier_multi, on_epoch=True, on_step=False, metric_attribute=self.acc_classifier_multi)
         self.log('classifier.image.acc', self.acc_classifier_image, on_epoch=True, on_step=False, metric_attribute=self.acc_classifier_image)
@@ -411,11 +412,16 @@ class STiLModel_MoE(pl.LightningModule):
         self.log(f"multimodal.val.CLUBloss_tabular", loss_club_t, on_epoch=True, on_step=False)
         self.log(f"multimodal.val.CLUBloss_tabular_est", loss_club_t_est, on_epoch=True, on_step=False)
         # =============================  classification ======================================
-        loss_ce = self.criterion_ce(y_MoE, y)
+        loss_ce = self.criterion_ce(y_m_hat, y) + self.criterion_ce(y_i_hat, y) + self.criterion_ce(y_t_hat, y)
         self.log(f"multimodal.val.CEloss", loss_ce, on_epoch=True, on_step=False)
+        
+        MoE_importance = torch.sum(MoE_weights, dim=0)
+        MoE_CV = MoE_importance.std() / MoE_importance.mean()
+        loss_load_balancing = torch.pow(MoE_CV, 2)
+        loss_moe = loss_load_balancing + self.criterion_ce(y_MoE, y)
 
         # loss = self.alpha*loss_ce + self.beta*loss_itc
-        loss = self.alpha*loss_ce + self.beta*loss_itc + self.gamma*(loss_club_i + loss_club_i_est + loss_club_t + loss_club_t_est)
+        loss = self.alpha*loss_ce + self.beta*loss_itc + self.gamma*(loss_club_i + loss_club_i_est + loss_club_t + loss_club_t_est) + self.omega*loss_moe
         self.log(f"multimodal.val.loss", loss, on_epoch=True, on_step=False)
         
         self.log(f'MoE.val.weight0', MoE_weights[:, 0], on_epoch=True, on_step=False)

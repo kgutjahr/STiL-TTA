@@ -72,7 +72,7 @@ class ContrastiveImagingAndTabularDataset(Dataset):
         im[0,:,:] = 0
 
     if augmentation_speedup:
-      print(self.target)
+      #print(self.target)
       if self.target == 'dvm':
         self.default_transform = A.Compose([
           A.Resize(height=img_size, width=img_size),

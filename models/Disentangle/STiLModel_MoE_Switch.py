@@ -283,9 +283,26 @@ class STiLModel_MoE_Switch(pl.LightningModule):
             for i, exp_entr in enumerate(entropy_experts):
                 self.log(f'train.expert_no{i}.entropy', exp_entr, on_epoch=True, on_step=False, batch_size=B_l)
             
-            self.log(f'MoE.train.weight_no0', MoE_weights[:, 0], on_epoch=True, on_step=False, batch_size=B_l)
-            self.log(f'MoE.train.weight_no1', MoE_weights[:, 1], on_epoch=True, on_step=False, batch_size=B_l)
-            self.log(f'MoE.train.weight_no2', MoE_weights[:, 2], on_epoch=True, on_step=False, batch_size=B_l)
+            routing_perc = MoE_weights.mean(dim=0) * 100
+            self.log(f'MoE.train.x_ai.class_prob_0', routing_perc[0, 0], on_epoch=True, on_step=False, batch_size=B_l)
+            self.log(f'MoE.train.x_ai.class_prob_1', routing_perc[0, 1], on_epoch=True, on_step=False, batch_size=B_l)
+            self.log(f'MoE.train.x_ai.class_prob_2', routing_perc[0, 2], on_epoch=True, on_step=False, batch_size=B_l)
+            
+            self.log(f'MoE.train.x_si_enhance.class_prob_0', routing_perc[1, 0], on_epoch=True, on_step=False, batch_size=B_l)
+            self.log(f'MoE.train.x_si_enhance.class_prob_1', routing_perc[1, 1], on_epoch=True, on_step=False, batch_size=B_l)
+            self.log(f'MoE.train.x_si_enhance.class_prob_2', routing_perc[1, 2], on_epoch=True, on_step=False, batch_size=B_l)
+            
+            self.log(f'MoE.train.x_c.class_prob_0', routing_perc[2, 0], on_epoch=True, on_step=False, batch_size=B_l)
+            self.log(f'MoE.train.x_c.class_prob_1', routing_perc[2, 1], on_epoch=True, on_step=False, batch_size=B_l)
+            self.log(f'MoE.train.x_c.class_prob_2', routing_perc[2, 2], on_epoch=True, on_step=False, batch_size=B_l)
+            
+            self.log(f'MoE.train.x_st_enhance.class_prob_0', routing_perc[3, 0], on_epoch=True, on_step=False, batch_size=B_l)
+            self.log(f'MoE.train.x_st_enhance.class_prob_1', routing_perc[3, 1], on_epoch=True, on_step=False, batch_size=B_l)
+            self.log(f'MoE.train.x_st_enhance.class_prob_2', routing_perc[3, 2], on_epoch=True, on_step=False, batch_size=B_l)
+            
+            self.log(f'MoE.train.x_at.class_prob_0', routing_perc[4, 0], on_epoch=True, on_step=False, batch_size=B_l)
+            self.log(f'MoE.train.x_at.class_prob_1', routing_perc[4, 1], on_epoch=True, on_step=False, batch_size=B_l)
+            self.log(f'MoE.train.x_at.class_prob_2', routing_perc[4, 2], on_epoch=True, on_step=False, batch_size=B_l)
             
             #balanced_acc_m = balanced_accuracy_score(y_true=y.cpu(), y_pred=top1_m.cpu())
             #balanced_acc_i = balanced_accuracy_score(y_true=y.cpu(), y_pred=top1_i.cpu())
@@ -425,9 +442,26 @@ class STiLModel_MoE_Switch(pl.LightningModule):
         loss = self.alpha*loss_ce + self.beta*loss_itc + self.gamma*(loss_club_i + loss_club_i_est + loss_club_t + loss_club_t_est) + self.omega*load_loss
         self.log(f"multimodal.val.loss", loss, on_epoch=True, on_step=False)
         
-        self.log(f'MoE.val.weight0', MoE_weights[:, 0], on_epoch=True, on_step=False)
-        self.log(f'MoE.val.weight1', MoE_weights[:, 1], on_epoch=True, on_step=False)
-        self.log(f'MoE.val.weight2', MoE_weights[:, 2], on_epoch=True, on_step=False)
+        routing_perc = MoE_weights.mean(dim=0) * 100
+        self.log(f'MoE.val.x_ai.class_prob_0', routing_perc[0, 0], on_epoch=True, on_step=False)
+        self.log(f'MoE.val.x_ai.class_prob_1', routing_perc[0, 1], on_epoch=True, on_step=False)
+        self.log(f'MoE.val.x_ai.class_prob_2', routing_perc[0, 2], on_epoch=True, on_step=False)
+        
+        self.log(f'MoE.val.x_si_enhance.class_prob_0', routing_perc[1, 0], on_epoch=True, on_step=False)
+        self.log(f'MoE.val.x_si_enhance.class_prob_1', routing_perc[1, 1], on_epoch=True, on_step=False)
+        self.log(f'MoE.val.x_si_enhance.class_prob_2', routing_perc[1, 2], on_epoch=True, on_step=False)
+        
+        self.log(f'MoE.val.x_c.class_prob_0', routing_perc[2, 0], on_epoch=True, on_step=False)
+        self.log(f'MoE.val.x_c.class_prob_1', routing_perc[2, 1], on_epoch=True, on_step=False)
+        self.log(f'MoE.val.x_c.class_prob_2', routing_perc[2, 2], on_epoch=True, on_step=False)
+        
+        self.log(f'MoE.val.x_st_enhance.class_prob_0', routing_perc[3, 0], on_epoch=True, on_step=False)
+        self.log(f'MoE.val.x_st_enhance.class_prob_1', routing_perc[3, 1], on_epoch=True, on_step=False)
+        self.log(f'MoE.val.x_st_enhance.class_prob_2', routing_perc[3, 2], on_epoch=True, on_step=False)
+        
+        self.log(f'MoE.val.x_at.class_prob_0', routing_perc[4, 0], on_epoch=True, on_step=False)
+        self.log(f'MoE.val.x_at.class_prob_1', routing_perc[4, 1], on_epoch=True, on_step=False)
+        self.log(f'MoE.val.x_at.class_prob_2', routing_perc[4, 2], on_epoch=True, on_step=False)
 
         prob_MoE = torch.softmax(y_MoE.detach(), dim=1)
         top1_MoE = torch.argmax(prob_MoE, dim=1)
@@ -578,9 +612,26 @@ class STiLModel_MoE_Switch(pl.LightningModule):
         #self.log(f'tabular.test.balanced_acc', balanced_acc_t, on_epoch=True, on_step=False)
         self.log(f'test.balanced_acc', balanced_acc_MoE, on_epoch=True, on_step=False)
         
-        self.log(f'MoE.test.weight0', MoE_weights[:, 0], on_epoch=True, on_step=False)
-        self.log(f'MoE.test.weight1', MoE_weights[:, 1], on_epoch=True, on_step=False)
-        self.log(f'MoE.test.weight2', MoE_weights[:, 2], on_epoch=True, on_step=False)
+        routing_perc = MoE_weights.mean(dim=0) * 100
+        self.log(f'MoE.test.x_ai.class_prob_0', routing_perc[0, 0], on_epoch=True, on_step=False)
+        self.log(f'MoE.test.x_ai.class_prob_1', routing_perc[0, 1], on_epoch=True, on_step=False)
+        self.log(f'MoE.test.x_ai.class_prob_2', routing_perc[0, 2], on_epoch=True, on_step=False)
+        
+        self.log(f'MoE.test.x_si_enhance.class_prob_0', routing_perc[1, 0], on_epoch=True, on_step=False)
+        self.log(f'MoE.test.x_si_enhance.class_prob_1', routing_perc[1, 1], on_epoch=True, on_step=False)
+        self.log(f'MoE.test.x_si_enhance.class_prob_2', routing_perc[1, 2], on_epoch=True, on_step=False)
+        
+        self.log(f'MoE.test.x_c.class_prob_0', routing_perc[2, 0], on_epoch=True, on_step=False)
+        self.log(f'MoE.test.x_c.class_prob_1', routing_perc[2, 1], on_epoch=True, on_step=False)
+        self.log(f'MoE.test.x_c.class_prob_2', routing_perc[2, 2], on_epoch=True, on_step=False)
+        
+        self.log(f'MoE.test.x_st_enhance.class_prob_0', routing_perc[3, 0], on_epoch=True, on_step=False)
+        self.log(f'MoE.test.x_st_enhance.class_prob_1', routing_perc[3, 1], on_epoch=True, on_step=False)
+        self.log(f'MoE.test.x_st_enhance.class_prob_2', routing_perc[3, 2], on_epoch=True, on_step=False)
+        
+        self.log(f'MoE.test.x_at.class_prob_0', routing_perc[4, 0], on_epoch=True, on_step=False)
+        self.log(f'MoE.test.x_at.class_prob_1', routing_perc[4, 1], on_epoch=True, on_step=False)
+        self.log(f'MoE.test.x_at.class_prob_2', routing_perc[4, 2], on_epoch=True, on_step=False)
         
         if self.hparams.num_classes==2:
             y_MoE = y_MoE[:,1]

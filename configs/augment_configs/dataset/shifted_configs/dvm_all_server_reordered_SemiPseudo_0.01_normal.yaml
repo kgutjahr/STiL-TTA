@@ -6,7 +6,7 @@ target: dvm
 task: classification
 
 data_base: 
-data_base_cq: /mnt/data/kgutjahr/datasets/DVM/shifted_dists/too_small/normal
+data_base_cq: /data/local/kgutjahr/datasets/DVM/shifted_dists/too_small/normal
 
 num_classes: 286
 weights:
