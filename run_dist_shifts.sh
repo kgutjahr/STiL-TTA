@@ -59,19 +59,18 @@ run_experiment () {
 
 
 # Experiment
-CONFIGS=("config_dvm_STiL_MoE_0.1_3" "config_dvm_STiL_MoE_0.5_3" "config_dvm_STiL_MoE_1_3" "config_dvm_STiL_MoE_2_3" "config_dvm_STiL_MoE_3_3")
-DATASETS=("ADNI/adni_normal_final" "ADNI/adni_age_final" "ADNI/adni_weight_final" "ADNI/adni_TE_final")
-BATCHSIZES=(32)
-DEVICE=0
+CONFIGS=("config_dvm_STiL_input_nothing_latent_all_delta" "config_dvm_STiL_input_nothing_latent_multi_delta" "config_dvm_STiL_input_nothing_latent_image_delta" "config_dvm_STiL_input_nothing_latent_tabular_delta" "config_dvm_STiL_input_nothing_latent_all_extrapolation" "config_dvm_STiL_input_nothing_latent_multi_extrapolation" "config_dvm_STiL_input_nothing_latent_image_extrapolation" "config_dvm_STiL_input_nothing_latent_tabular_extrapolation" "config_dvm_STiL_input_nothing_latent_all_mixstyle" "config_dvm_STiL_input_nothing_latent_multi_mixstyle" "config_dvm_STiL_input_nothing_latent_image_mixstyle" "config_dvm_STiL_input_nothing_latent_tabular_mixstyle")
+DATASETS=("TIP/dvm_all_server_reordered_SemiPseudo_TIP_color_miles")
+BATCHSIZES=(512)
+DEVICE=1
 REPEAT=1
-RESULT_DIR="ADNI/final_dataset/MoE3-linear"
+RESULT_DIR="latent_augmentation_results/latent_only_before_classifier_whole"
 declare -A EXTRA_PARAMS=(
   ["max_epochs"]=350
   ["cut_classifier_input"]=False
   ["train_logit_consent"]=False
   ["replace_ce_loss"]=False
-  ["seed"]=2024
-  ["linear_gate"]=True
+  ["seed"]=2022
 )
 
 

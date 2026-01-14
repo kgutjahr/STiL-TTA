@@ -1,0 +1,17 @@
+Shift,Method,$f_m$,$f_i$,$f_t$,All
+TE,delta,84.9,85.4,85.4,85.3
+TE,extrapolation,85.3,85.6,84.7,85.7
+TE,mixstyle,85.1,85.4,85.5,85.1
+TE,noise,85.2,85.0,85.2,85.5
+age,delta,80.7,81.6,81.7,80.6
+age,extrapolation,81.4,82.0,82.1,81.6
+age,mixstyle,81.9,82.0,81.8,81.7
+age,noise,81.6,81.8,81.5,81.9
+normal,delta,84.0,83.9,84.1,83.5
+normal,extrapolation,84.0,83.8,84.3,83.8
+normal,mixstyle,84.0,84.4,84.4,83.6
+normal,noise,83.8,83.8,84.3,83.6
+weight,delta,85.2,85.6,85.1,84.9
+weight,extrapolation,85.3,85.4,85.4,85.5
+weight,mixstyle,85.5,85.8,85.7,85.6
+weight,noise,84.9,85.7,85.4,85.3
