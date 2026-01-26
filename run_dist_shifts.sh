@@ -59,12 +59,12 @@ run_experiment () {
 
 
 # Experiment
-CONFIGS=("config_dvm_STiL_input_nothing_latent_all_delta" "config_dvm_STiL_input_nothing_latent_multi_delta" "config_dvm_STiL_input_nothing_latent_image_delta" "config_dvm_STiL_input_nothing_latent_tabular_delta" "config_dvm_STiL_input_nothing_latent_all_extrapolation" "config_dvm_STiL_input_nothing_latent_multi_extrapolation" "config_dvm_STiL_input_nothing_latent_image_extrapolation" "config_dvm_STiL_input_nothing_latent_tabular_extrapolation" "config_dvm_STiL_input_nothing_latent_all_mixstyle" "config_dvm_STiL_input_nothing_latent_multi_mixstyle" "config_dvm_STiL_input_nothing_latent_image_mixstyle" "config_dvm_STiL_input_nothing_latent_tabular_mixstyle")
-DATASETS=("TIP/dvm_all_server_reordered_SemiPseudo_TIP_color_miles")
+CONFIGS=("config_dvm_STiL_input_both")
+DATASETS=("dvm_all_server_reordered_SemiPseudo_0.1_color_miles")
 BATCHSIZES=(512)
-DEVICE=1
+DEVICE=0
 REPEAT=1
-RESULT_DIR="latent_augmentation_results/latent_only_before_classifier_whole"
+RESULT_DIR="latent_augmentation_results/input_only"
 declare -A EXTRA_PARAMS=(
   ["max_epochs"]=350
   ["cut_classifier_input"]=False

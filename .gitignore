@@ -5,3 +5,4 @@ outputs/
 screenlog.0
 .vscode/
 error_logs/
+*STiL-MoE-Plots/

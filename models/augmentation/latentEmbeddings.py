@@ -191,7 +191,7 @@ def linear_delta(x: torch.Tensor, y: torch.Tensor, sample_randomly: bool, rate: 
     return z
 
 if __name__ == "__main__":
-    from AugmentSummarizer import AugmentSummarizer
+    #from AugmentSummarizer import AugmentSummarizer
     x = torch.rand([20, 4])
     a = torch.rand([20, 4])
     b = torch.rand([20, 4])
@@ -204,18 +204,18 @@ if __name__ == "__main__":
     y[9] = 17
     y[16] = 17
     
-    aug = AugmentSummarizer()
+    #aug = AugmentSummarizer()
     
     pairs = get_random_idx(batch_size=x.size()[0], rate=0.35, seed=2022)
     
-    z = random_noise(x=x, rate=0.75, min_range=-1.0, max_range=1.0, seed=2022)
-    aug.register_rate(modality="image", A=x, B=z)
-    u = random_noise(x=a, rate=0.75, min_range=-1.0, max_range=1.0, seed=2022)
-    aug.register_rate(modality="tabular", A=a, B=u)
-    v = random_noise(x=b, rate=0.75, min_range=-1.0, max_range=1.0, seed=2022)
-    aug.register_rate(modality="multimodal", A=b, B=v)
+    z = random_noise(x=x, rate=0.1, min_range=-1.0, max_range=1.0, seed=2022)
+    #aug.register_rate(modality="image", A=x, B=z)
+    u = random_noise(x=a, rate=0.1, min_range=-1.0, max_range=1.0, seed=2022)
+    #aug.register_rate(modality="tabular", A=a, B=u)
+    v = random_noise(x=b, rate=0.1, min_range=-1.0, max_range=1.0, seed=2022)
+    #aug.register_rate(modality="multimodal", A=b, B=v)
     
-    print(aug.summarize())
+    #print(aug.summarize())
     
     assert len(z) == len(y)
     diff = (z != x)
